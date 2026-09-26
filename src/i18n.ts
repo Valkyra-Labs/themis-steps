@@ -1,0 +1,72 @@
+// Interface strings in English and Arabic. The engine's explanations are
+// English for now; the Arabic interface says so.
+
+export type Lang = "en" | "ar";
+
+const en = {
+  title: "Themis Steps",
+  tagline: "Checks each line of your algebra against the previous one.",
+  language: "العربية",
+  tabs: { working: "Check your working", examples: "Worked examples", audit: "Audit exercises" },
+  problem: "Equation or expression to start from",
+  nextLine: "Next line",
+  nextHint: "Press Enter to check. Write answers as x = 2 or x = 3, or x = ±3.",
+  removeLast: "Remove last line",
+  startOver: "Start over",
+  correct: "Correct",
+  wrong: "Changes the solutions",
+  notEqual: "Not equal",
+  cannotRead: "Cannot read this line",
+  start: "Start",
+  checkedIn: (ms: string) => `checked in ${ms} ms`,
+  examplesIntro: "Each worked solution is checked line by line; in the ones with a mistake, the engine finds the step.",
+  firstMistake: (n: number) => `First mistake: line ${n}`,
+  allCorrect: "Every step is correct",
+  auditIntro:
+    "A set of generated exercises with their stated answers. Each answer is checked against the exact solutions of its equation.",
+  exercise: "Exercise",
+  stated: "Stated answer",
+  actual: "Actual solutions",
+  verdict: "Verdict",
+  none: "no real solution",
+  every: "every x in the domain",
+  auditSummary: (ok: number, n: number) => `${ok} of ${n} stated answers are correct`,
+  answerOk: "Answer correct",
+  answerWrong: "Answer wrong",
+  mathNote: "",
+};
+
+const ar: typeof en = {
+  title: "ثيميس",
+  tagline: "يتحقق من كل سطر في حلّك الجبري مقارنةً بالسطر السابق.",
+  language: "English",
+  tabs: { working: "تحقّق من حلّك", examples: "أمثلة محلولة", audit: "تدقيق التمارين" },
+  problem: "المعادلة أو العبارة التي تبدأ منها",
+  nextLine: "السطر التالي",
+  nextHint: "اضغط Enter للتحقق. اكتب الإجابات هكذا: x = 2 or x = 3 أو x = ±3.",
+  removeLast: "احذف السطر الأخير",
+  startOver: "ابدأ من جديد",
+  correct: "صحيح",
+  wrong: "يغيّر الحلول",
+  notEqual: "غير متساويين",
+  cannotRead: "تعذّرت قراءة هذا السطر",
+  start: "البداية",
+  checkedIn: (ms: string) => `تم التحقق خلال ${ms} ملّي ثانية`,
+  examplesIntro: "يُتحقَّق من كل حلّ سطرًا بسطر؛ وفي الحلول التي تحتوي خطأً يجد المحرّك الخطوة الخاطئة.",
+  firstMistake: (n: number) => `أول خطأ: السطر ${n}`,
+  allCorrect: "كل الخطوات صحيحة",
+  auditIntro: "مجموعة تمارين مولّدة مع إجاباتها المعلنة. تُقارَن كل إجابة بالحلول الدقيقة لمعادلتها.",
+  exercise: "التمرين",
+  stated: "الإجابة المعلنة",
+  actual: "الحلول الفعلية",
+  verdict: "النتيجة",
+  none: "لا يوجد حل حقيقي",
+  every: "كل x في المجال",
+  auditSummary: (ok: number, n: number) => `${ok} من ${n} إجابات معلنة صحيحة`,
+  answerOk: "الإجابة صحيحة",
+  answerWrong: "الإجابة خاطئة",
+  mathNote: "الشروحات التفصيلية بالإنجليزية حاليًا.",
+};
+
+export const strings = { en, ar };
+export type Strings = typeof en;

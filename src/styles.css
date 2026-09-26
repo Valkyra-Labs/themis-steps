@@ -1,0 +1,35 @@
+@import "@fontsource/ibm-plex-sans/400.css";
+@import "@fontsource/ibm-plex-sans/500.css";
+@import "@fontsource/ibm-plex-sans-arabic/400.css";
+@import "@fontsource/ibm-plex-mono/400.css";
+@import "@valkyra-labs/stoa-react/styles.css";
+
+:root {
+  color-scheme: light dark;
+  font-family: var(--stoa-font-family-sans);
+  font-size: var(--stoa-font-size-md);
+  background: var(--stoa-color-bg);
+  color: var(--stoa-color-text);
+}
+body { margin: 0; }
+.bar { display: flex; flex-wrap: wrap; gap: var(--stoa-space-3); align-items: baseline; padding: var(--stoa-space-3) var(--stoa-space-4); border-block-end: 1px solid var(--stoa-color-border); background: var(--stoa-color-surface); }
+.bar h1 { font-size: var(--stoa-font-size-lg); margin: 0; }
+.spacer { flex: 1; }
+.muted { color: var(--stoa-color-text-muted); font-size: var(--stoa-font-size-sm); }
+.error { color: var(--stoa-color-down); padding: var(--stoa-space-4); }
+.content { max-inline-size: 960px; margin-inline: auto; padding: var(--stoa-space-4); }
+.visually-hidden { position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.steps { list-style: none; margin: 0 0 var(--stoa-space-4); padding: 0; display: grid; gap: var(--stoa-space-2); }
+.step {
+  display: grid; grid-template-columns: 2ch 1fr auto; gap: var(--stoa-space-1) var(--stoa-space-3); align-items: baseline;
+  padding: var(--stoa-space-2) var(--stoa-space-3); border: 1px solid var(--stoa-color-border); border-radius: var(--stoa-radius-md); background: var(--stoa-color-surface);
+}
+.step--changed, .step--not_equal { border-color: var(--stoa-color-down); }
+.step__n { color: var(--stoa-color-text-subtle); font-family: var(--stoa-font-family-mono); }
+.step__math { font-family: var(--stoa-font-family-mono); font-size: var(--stoa-font-size-lg); text-align: start; }
+.step__why { grid-column: 2 / -1; margin: 0; color: var(--stoa-color-text-muted); font-size: var(--stoa-font-size-sm); }
+.working { display: grid; gap: var(--stoa-space-3); max-inline-size: 640px; }
+.actions { display: flex; flex-wrap: wrap; gap: var(--stoa-space-2); align-items: center; }
+.examples { display: grid; gap: var(--stoa-space-4); }
+.math { font-family: var(--stoa-font-family-mono); }
+.audit td { vertical-align: top; padding-block: var(--stoa-space-2); }
