@@ -90,7 +90,7 @@ export function Working({ t }: { t: Strings }) {
         )}
       </div>
       {/* The line and the engine's explanation, which is English. */}
-      <p className="visually-hidden" aria-live="polite" lang="en">
+      <p className="stoa-visually-hidden" aria-live="polite" lang="en">
         {announce}
       </p>
     </div>

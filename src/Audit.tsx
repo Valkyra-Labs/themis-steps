@@ -72,7 +72,7 @@ export function Audit({ t }: { t: Strings }) {
         <strong>{t.auditSummary(ok, rows.length)}</strong>
       </p>
       <table className="stoa-table">
-        <caption className="visually-hidden">{t.tabs.audit}</caption>
+        <caption className="stoa-visually-hidden">{t.tabs.audit}</caption>
         <thead>
           <tr>
             <th scope="col">{t.exercise}</th>
