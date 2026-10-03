@@ -16,7 +16,7 @@ test("typing a line checks it against the previous one", async ({ page }) => {
   await next.press("Enter");
   await next.fill("x = 2");
   await next.press("Enter");
-  const steps = page.locator(".step");
+  const steps = page.locator(".working .step");
   await expect(steps).toHaveCount(3);
   await expect(steps.nth(1)).toContainText("Correct");
   await expect(steps.nth(2)).toContainText("This step loses x = 3.");
@@ -60,6 +60,18 @@ test("removing lines can be undone until the next edit", async ({ page }) => {
   await next.press("Enter");
   await expect(notice.getByRole("button", { name: "Undo" })).toHaveCount(0);
   await expect(notice).toBeEmpty();
+});
+
+test("the working survives a visit to another tab", async ({ page }) => {
+  await page.goto("/");
+  const next = page.getByLabel("Next line");
+  await next.fill("(x - 2)(x - 3) = 0");
+  await next.press("Enter");
+  await next.fill("x = 2");
+  await page.getByRole("tab", { name: "Worked examples" }).click();
+  await page.getByRole("tab", { name: "Check your working" }).click();
+  await expect(page.locator(".working .step")).toHaveCount(2);
+  await expect(next).toHaveValue("x = 2");
 });
 
 test("undo in the Arabic interface", async ({ page }) => {

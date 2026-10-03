@@ -84,8 +84,11 @@ export function App() {
           {engine.status === "ready" && (
             <>
               {t.mathNote && <p className="muted">{t.mathNote}</p>}
+              {/* Kept mounted, so the learner's working survives a look at
+                  the other tabs. */}
               <Tabs
                 label={t.title}
+                keepMounted
                 items={[
                   { id: "working", label: t.tabs.working, content: <Working t={t} /> },
                   { id: "examples", label: t.tabs.examples, content: <Examples t={t} lang={lang} /> },
