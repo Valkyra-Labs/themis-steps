@@ -1,5 +1,6 @@
 // End-to-end checks: typing working and getting verdicts, the worked
-// examples and the audit, the Arabic interface, and axe in both.
+// examples and the audit, the Arabic interface, the theme, and axe in
+// both languages.
 import { expect, test, type Page } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
 
@@ -115,17 +116,21 @@ test("the Arabic interface is right to left and keeps maths left to right", asyn
 
 test("the chosen language survives a reload", async ({ page }) => {
   await page.goto("/?from=link");
-  await page.getByRole("button", { name: "العربية" }).click();
+  await expect(page.getByRole("radiogroup", { name: "Language" })).toBeVisible();
+  await page.getByRole("radio", { name: "AR", exact: true }).click();
   await expect(page.locator("html")).toHaveAttribute("lang", "ar");
+  await expect(page).toHaveTitle("ثيميس");
   // The other parameters stay as they were.
   expect(new URL(page.url()).searchParams.get("from")).toBe("link");
   expect(new URL(page.url()).searchParams.get("lang")).toBe("ar");
   await page.reload();
   await expect(page.locator("html")).toHaveAttribute("dir", "rtl");
   await expect(page.getByRole("tab", { name: "تحقّق من حلّك" })).toBeVisible();
-  await page.getByRole("button", { name: "English" }).click();
+  await expect(page.getByRole("radio", { name: "AR", exact: true })).toBeChecked();
+  await page.getByRole("radio", { name: "EN", exact: true }).click();
   await page.reload();
   await expect(page.locator("html")).toHaveAttribute("lang", "en");
+  await expect(page).toHaveTitle("Themis Steps");
   await expect(page.getByRole("tab", { name: "Check your working" })).toBeVisible();
 });
 
@@ -173,6 +178,59 @@ test("answers typed with أو or the Arabic comma are read", async ({ page }) =>
   // An English answer line is shown with the Arabic word in the Arabic interface.
   await page.getByRole("tab", { name: "أمثلة محلولة" }).click();
   await expect(page.locator(".examples .step__math").nth(2)).toHaveText("x = 2 أو x = 3");
+});
+
+test("the theme follows the system until one is chosen", async ({ page }) => {
+  await page.emulateMedia({ colorScheme: "dark" });
+  await page.goto("/");
+  const html = page.locator("html");
+  await expect(page.getByRole("radiogroup", { name: "Theme" })).toBeVisible();
+  await expect(page.getByRole("radio", { name: "Dark" })).toBeChecked();
+  await expect(html).not.toHaveAttribute("data-theme");
+  await page.emulateMedia({ colorScheme: "light" });
+  await expect(page.getByRole("radio", { name: "Light" })).toBeChecked();
+  await expect(html).not.toHaveAttribute("data-theme");
+});
+
+test("the chosen theme survives a reload and the next visit", async ({ page }) => {
+  await page.emulateMedia({ colorScheme: "light" });
+  await page.goto("/?from=link");
+  const html = page.locator("html");
+  const background = () => html.evaluate((el) => getComputedStyle(el).backgroundColor);
+  const light = await background();
+  await page.getByRole("radio", { name: "Dark" }).click();
+  await expect(html).toHaveAttribute("data-theme", "dark");
+  expect(await background()).not.toBe(light);
+  const url = new URL(page.url());
+  expect(url.searchParams.get("theme")).toBe("dark");
+  expect(url.searchParams.get("from")).toBe("link");
+  await page.reload();
+  await expect(html).toHaveAttribute("data-theme", "dark");
+  await expect(page.getByRole("radio", { name: "Dark" })).toBeChecked();
+  // Without the parameter, the choice comes from the last visit.
+  await page.goto("/?lang=ar");
+  await expect(html).toHaveAttribute("data-theme", "dark");
+  await expect(page.getByRole("radiogroup", { name: "المظهر" })).toBeVisible();
+  await expect(page.getByRole("radio", { name: "داكن" })).toBeChecked();
+  // A link's theme wins over the remembered one.
+  await page.goto("/?theme=light");
+  await expect(html).toHaveAttribute("data-theme", "light");
+  await expect(page.getByRole("radio", { name: "Light" })).toBeChecked();
+});
+
+test("the theme can be chosen with storage blocked", async ({ page }) => {
+  await page.addInitScript(() => {
+    Object.defineProperty(window, "localStorage", {
+      get() {
+        throw new DOMException("blocked", "SecurityError");
+      },
+    });
+  });
+  await page.goto("/");
+  await page.getByRole("radio", { name: "Dark" }).click();
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+  await page.reload();
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
 });
 
 test("the Arabic audit keeps words right to left and maths left to right", async ({ page }) => {

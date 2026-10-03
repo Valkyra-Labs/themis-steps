@@ -231,7 +231,10 @@ function explainAr(c: Check, subject: Subject): Rich {
 const en = {
   title: "Themis Steps",
   tagline: "Checks each line of your algebra against the previous one.",
-  language: "العربية",
+  language: "Language",
+  theme: "Theme",
+  light: "Light",
+  dark: "Dark",
   tabs: { working: "Check your working", examples: "Worked examples", audit: "Audit exercises" },
   problem: "Equation or expression to start from",
   nextLine: "Next line",
@@ -286,7 +289,10 @@ const en = {
 const ar: typeof en = {
   title: "ثيميس",
   tagline: "يتحقق من كل سطر في حلّك الجبري مقارنةً بالسطر السابق.",
-  language: "English",
+  language: "اللغة",
+  theme: "المظهر",
+  light: "فاتح",
+  dark: "داكن",
   tabs: { working: "تحقّق من حلّك", examples: "أمثلة محلولة", audit: "تدقيق التمارين" },
   problem: "المعادلة أو العبارة التي تبدأ منها",
   nextLine: "السطر التالي",

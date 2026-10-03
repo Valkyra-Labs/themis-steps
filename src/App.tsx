@@ -1,7 +1,8 @@
 import { useEffect, useLayoutEffect, useState } from "react";
-import { Button, Disclosure, I18nProvider, Tabs } from "@valkyra-labs/stoa-react";
+import { Button, ChoiceGroup, Disclosure, I18nProvider, Tabs } from "@valkyra-labs/stoa-react";
 import { loadEngine } from "./engine";
 import { strings, type Lang } from "./i18n";
+import { chosenTheme, onSystemTheme, rememberTheme, setParam, systemTheme, type Theme } from "./settings";
 import { Working } from "./Working";
 import { Examples } from "./Examples";
 import { Audit } from "./Audit";
@@ -18,6 +19,11 @@ export function App() {
   const [attempt, setAttempt] = useState(0);
   const [lang, setLang] = useState<Lang>(() => (new URLSearchParams(location.search).get("lang") === "ar" ? "ar" : "en"));
   const t = strings[lang];
+  // `chosen` is false while the theme follows the system.
+  const [theme, setTheme] = useState<{ value: Theme; chosen: boolean }>(() => {
+    const chosen = chosenTheme();
+    return chosen ? { value: chosen, chosen: true } : { value: systemTheme(), chosen: false };
+  });
 
   useEffect(() => {
     let live = true;
@@ -44,13 +50,25 @@ export function App() {
     document.title = t.title;
   }, [lang, t]);
 
+  // Without data-theme Stoa's tokens follow the system; the switch shows
+  // which theme that is, and keeps up with it until a theme is chosen.
+  useLayoutEffect(() => {
+    if (theme.chosen) document.documentElement.dataset.theme = theme.value;
+    else delete document.documentElement.dataset.theme;
+  }, [theme]);
+  useEffect(() => {
+    if (theme.chosen) return;
+    return onSystemTheme((value) => setTheme({ value, chosen: false }));
+  }, [theme.chosen]);
+
+  const chooseTheme = (value: Theme) => {
+    rememberTheme(value);
+    setTheme({ value, chosen: true });
+  };
+
   // The language lives in ?lang= too, so a reload or a shared link keeps it.
-  // replaceState: switching language is not a step to go back through.
-  const switchLang = () => {
-    const next: Lang = lang === "en" ? "ar" : "en";
-    const url = new URL(location.href);
-    url.searchParams.set("lang", next);
-    history.replaceState(history.state, "", url);
+  const switchLang = (next: Lang) => {
+    setParam("lang", next);
     setLang(next);
   };
 
@@ -67,9 +85,31 @@ export function App() {
           <h1>{t.title}</h1>
           <span className="muted">{t.tagline}</span>
           <span className="spacer" />
-          <Button onPress={switchLang}>
-            <span lang={lang === "en" ? "ar" : "en"}>{t.language}</span>
-          </Button>
+          <div className="switches">
+            <ChoiceGroup<Theme>
+              label={t.theme}
+              size="small"
+              value={theme.value}
+              onChange={chooseTheme}
+              choices={[
+                { id: "light", label: t.light },
+                { id: "dark", label: t.dark },
+              ]}
+            />
+            {/* Language codes, the same in both interfaces; in the Arabic
+                one they are the only Latin letters outside maths, and are
+                marked as such. */}
+            <ChoiceGroup<Lang>
+              label={t.language}
+              size="small"
+              value={lang}
+              onChange={switchLang}
+              choices={[
+                { id: "en", label: <span lang={lang === "ar" ? "en" : undefined}>EN</span> },
+                { id: "ar", label: <span lang={lang === "ar" ? "en" : undefined}>AR</span> },
+              ]}
+            />
+          </div>
         </header>
         <main className="content">
           {/* Always rendered, so a retry's loading message is announced. */}
