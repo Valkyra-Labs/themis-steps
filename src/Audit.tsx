@@ -52,7 +52,18 @@ export function Audit({ t }: { t: Strings }) {
       }),
     [],
   );
-  const fmt = (v: string[]) => (v.length === 0 ? t.none : v[0] === "*" ? t.every : v.join(", "));
+  // Solutions are maths, kept left to right; "no real solution" and "every
+  // x" are words, which take the interface's direction.
+  const answer = (v: string[]) =>
+    v.length === 0 ? (
+      t.none
+    ) : v[0] === "*" ? (
+      t.every
+    ) : (
+      <bdi dir="ltr" className="math">
+        {pretty(v.join(", "))}
+      </bdi>
+    );
   const ok = rows.filter((r) => r.ok).length;
   return (
     <div className="audit">
@@ -73,9 +84,13 @@ export function Audit({ t }: { t: Strings }) {
         <tbody>
           {rows.map((r) => (
             <tr key={r.equation}>
-              <td dir="ltr" className="math"><bdi>{pretty(r.equation)}</bdi></td>
-              <td dir="ltr" className="math">{pretty(fmt(r.stated))}</td>
-              <td dir="ltr" className="math">{pretty(fmt(r.actual))}</td>
+              <td>
+                <bdi dir="ltr" className="math">
+                  {pretty(r.equation)}
+                </bdi>
+              </td>
+              <td>{answer(r.stated)}</td>
+              <td>{answer(r.actual)}</td>
               <td>
                 <StatusBadge tone={r.ok ? "positive" : "negative"}>{r.ok ? t.answerOk : t.answerWrong}</StatusBadge>
                 {r.why && (

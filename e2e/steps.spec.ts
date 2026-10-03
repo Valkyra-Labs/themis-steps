@@ -119,6 +119,17 @@ test("English text in the Arabic interface is marked as English", async ({ page 
   await expect(reason).toHaveAttribute("dir", "ltr");
 });
 
+test("the Arabic audit keeps words right to left and maths left to right", async ({ page }) => {
+  await page.goto("/?lang=ar");
+  await page.getByRole("tab", { name: "تدقيق التمارين" }).click();
+  // "Every x in the domain" read in a left-to-right cell put its words in
+  // the wrong order.
+  const words = page.getByRole("cell", { name: "كل x في المجال" }).first();
+  await expect(words).toHaveCSS("direction", "rtl");
+  const equation = page.getByRole("cell", { name: "2x + 3 = 11" }).locator("bdi");
+  await expect(equation).toHaveAttribute("dir", "ltr");
+});
+
 test("Arabic text has a font file for each weight it is drawn in", async ({ page }) => {
   // Without one the browser synthesises bold from the regular face.
   await page.goto("/?lang=ar");
