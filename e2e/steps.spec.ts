@@ -208,5 +208,12 @@ for (const lang of ["en", "ar"]) {
     await page.goto(`/?lang=${lang}`);
     await expect(page.locator(".step").first()).toBeVisible();
     await expectNoSeriousViolations(page);
+    // The other tabs' panels are hidden until chosen, so axe sees each one
+    // only while it is shown.
+    for (const tab of (await page.getByRole("tab").all()).slice(1)) {
+      await tab.click();
+      await expect(tab).toHaveAttribute("aria-selected", "true");
+      await expectNoSeriousViolations(page);
+    }
   });
 }
