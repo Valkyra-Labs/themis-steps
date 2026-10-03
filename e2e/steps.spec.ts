@@ -42,6 +42,19 @@ test("the Arabic interface is right to left and keeps maths left to right", asyn
   await expect(page.locator(".step__math").first()).toHaveAttribute("dir", "ltr");
 });
 
+test("arrow keys in the tabs follow the page direction", async ({ page }) => {
+  // React Aria takes its direction from the locale it is given, not from
+  // the page; the browser here is en-US in both languages.
+  await page.goto("/?lang=ar");
+  await page.getByRole("tab", { name: "تحقّق من حلّك" }).focus();
+  await page.keyboard.press("ArrowLeft");
+  await expect(page.getByRole("tab", { name: "أمثلة محلولة" })).toBeFocused();
+  await page.goto("/");
+  await page.getByRole("tab", { name: "Check your working" }).focus();
+  await page.keyboard.press("ArrowRight");
+  await expect(page.getByRole("tab", { name: "Worked examples" })).toBeFocused();
+});
+
 for (const lang of ["en", "ar"]) {
   test(`no serious or critical axe violations (${lang})`, async ({ page }) => {
     await page.goto(`/?lang=${lang}`);
