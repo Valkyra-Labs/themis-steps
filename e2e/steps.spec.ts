@@ -179,6 +179,13 @@ test("Arabic text has a font file for each weight it is drawn in", async ({ page
   }
 });
 
+test("on a phone the field hint is at least 12px", async ({ page }) => {
+  // Lighthouse's mobile legible-font audit; Stoa draws field hints at 11px.
+  await page.setViewportSize({ width: 412, height: 823 });
+  await page.goto("/?lang=ar");
+  await expect(page.locator(".working .stoa-field__description")).toHaveCSS("font-size", "12px");
+});
+
 test("arrow keys in the tabs follow the page direction", async ({ page }) => {
   // React Aria takes its direction from the locale it is given, not from
   // the page; the browser here is en-US in both languages.
