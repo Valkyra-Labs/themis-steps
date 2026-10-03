@@ -1,7 +1,13 @@
 // End-to-end checks: typing working and getting verdicts, the worked
 // examples and the audit, the Arabic interface, and axe in both.
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
+
+async function expectNoSeriousViolations(page: Page) {
+  const results = await new AxeBuilder({ page }).analyze();
+  const serious = results.violations.filter((v) => v.impact === "serious" || v.impact === "critical");
+  expect(serious.map((v) => `${v.id}: ${v.nodes.length}`)).toEqual([]);
+}
 
 test("typing a line checks it against the previous one", async ({ page }) => {
   await page.goto("/");
@@ -16,6 +22,58 @@ test("typing a line checks it against the previous one", async ({ page }) => {
   await expect(steps.nth(2)).toContainText("This step loses x = 3.");
   // The verdict is announced to screen readers.
   await expect(page.locator('[aria-live="polite"]').last()).toContainText("loses x = 3");
+});
+
+test("removing lines can be undone until the next edit", async ({ page }) => {
+  await page.goto("/");
+  const next = page.getByLabel("Next line");
+  await next.fill("(x - 2)(x - 3) = 0");
+  await next.press("Enter");
+  await next.fill("x = 2 or x = 3");
+  await next.press("Enter");
+  const steps = page.locator(".working .step");
+  const notice = page.locator(".notice");
+  await expect(notice).toHaveRole("status");
+  await expect(steps).toHaveCount(3);
+
+  await page.getByRole("button", { name: "Remove last line" }).click();
+  await expect(steps).toHaveCount(2);
+  await expect(notice).toHaveText("Line 3 removed.Undo");
+  await notice.getByRole("button", { name: "Undo" }).click();
+  await expect(steps).toHaveCount(3);
+  await expect(notice).toHaveText("Line 3 restored.");
+  await expect(next).toBeFocused();
+
+  // Start over disables itself, so focus moves on to the next-line field.
+  await page.getByRole("button", { name: "Start over" }).click();
+  await expect(steps).toHaveCount(1);
+  await expect(next).toBeFocused();
+  await expect(notice).toContainText("Started over: every line after the first was removed.");
+  await notice.getByRole("button", { name: "Undo" }).click();
+  await expect(steps).toHaveCount(3);
+  await expect(steps.nth(2)).toContainText("x = 2 or x = 3");
+  await expect(notice).toHaveText("Your working was restored.");
+
+  await page.getByRole("button", { name: "Remove last line" }).click();
+  await expect(notice.getByRole("button", { name: "Undo" })).toBeVisible();
+  await next.fill("x = 3");
+  await next.press("Enter");
+  await expect(notice.getByRole("button", { name: "Undo" })).toHaveCount(0);
+  await expect(notice).toBeEmpty();
+});
+
+test("undo in the Arabic interface", async ({ page }) => {
+  await page.goto("/?lang=ar");
+  const next = page.getByLabel("السطر التالي", { exact: true });
+  await next.fill("(x - 2)(x - 3) = 0");
+  await next.press("Enter");
+  await page.getByRole("button", { name: "احذف السطر الأخير" }).click();
+  const notice = page.locator(".notice");
+  await expect(notice).toContainText("حُذف السطر 2.");
+  await expectNoSeriousViolations(page);
+  await notice.getByRole("button", { name: "تراجع" }).click();
+  await expect(notice).toHaveText("استُعيد السطر 2.");
+  await expect(page.locator(".working .step")).toHaveCount(2);
 });
 
 test("worked examples point at the first wrong line", async ({ page }) => {
@@ -75,9 +133,7 @@ test("a failed engine load says so and can be retried", async ({ page }) => {
   await expect(page.getByRole("alert")).toHaveText("تعذّر تحميل المحرّك. تحقّق من اتصالك ثم أعد المحاولة.");
   // The browser's error message is English, and marked so.
   await expect(page.locator(".load-failed code")).toHaveAttribute("lang", "en");
-  const results = await new AxeBuilder({ page }).analyze();
-  const serious = results.violations.filter((v) => v.impact === "serious" || v.impact === "critical");
-  expect(serious.map((v) => `${v.id}: ${v.nodes.length}`)).toEqual([]);
+  await expectNoSeriousViolations(page);
   await page.unroute("**/*.wasm");
   await page.getByRole("button", { name: "أعد المحاولة" }).click();
   await expect(page.getByRole("tab", { name: "تحقّق من حلّك" })).toBeVisible();
@@ -88,8 +144,6 @@ for (const lang of ["en", "ar"]) {
   test(`no serious or critical axe violations (${lang})`, async ({ page }) => {
     await page.goto(`/?lang=${lang}`);
     await expect(page.locator(".step").first()).toBeVisible();
-    const results = await new AxeBuilder({ page }).analyze();
-    const serious = results.violations.filter((v) => v.impact === "serious" || v.impact === "critical");
-    expect(serious.map((v) => `${v.id}: ${v.nodes.length}`)).toEqual([]);
+    await expectNoSeriousViolations(page);
   });
 }

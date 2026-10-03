@@ -36,6 +36,7 @@ body { margin: 0; }
 .step__why { grid-column: 2 / -1; margin: 0; color: var(--stoa-color-text-muted); font-size: var(--stoa-font-size-sm); }
 .working { display: grid; gap: var(--stoa-space-3); max-inline-size: 640px; }
 .actions { display: flex; flex-wrap: wrap; gap: var(--stoa-space-2); align-items: center; }
+.notice { display: flex; flex-wrap: wrap; gap: var(--stoa-space-2); align-items: center; }
 .examples { display: grid; gap: var(--stoa-space-4); }
 .math { font-family: var(--stoa-font-family-mono); }
 .audit td { vertical-align: top; padding-block: var(--stoa-space-2); }

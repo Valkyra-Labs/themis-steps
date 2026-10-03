@@ -1,26 +1,54 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button, TextField } from "@valkyra-labs/stoa-react";
-import { check, type Check } from "./engine";
+import { check } from "./engine";
 import type { Strings } from "./i18n";
+import { addLine, canUndo, removeLast, setProblem, start, startOver, undo, type Notice, type WorkingState } from "./lines";
 import { StepRow } from "./StepRow";
 
-type Line = { text: string; result?: Check };
+function noticeText(n: Notice, t: Strings): string {
+  switch (n.kind) {
+    case "removed":
+      return t.lineRemoved(n.line);
+    case "startedOver":
+      return t.startedOver;
+    case "restored":
+      return n.line === null ? t.workingRestored : t.lineRestored(n.line);
+  }
+}
 
 /** The learner writes the working; each line is checked against the one
- * before it as soon as Enter is pressed. */
+ * before it as soon as Enter is pressed. Removing lines can be undone
+ * until the next edit. */
 export function Working({ t }: { t: Strings }) {
-  const [lines, setLines] = useState<Line[]>([{ text: "x^2 - 5x + 6 = 0" }]);
+  const [state, setState] = useState<WorkingState>(() => start("x^2 - 5x + 6 = 0"));
   const [next, setNext] = useState("");
   const [announce, setAnnounce] = useState("");
+  const nextField = useRef<HTMLDivElement>(null);
+  // Set when the control that had focus goes away (a button that becomes
+  // disabled, or Undo once used); focus then moves to the next-line field.
+  const [refocus, setRefocus] = useState(false);
+  const { lines, notice } = state;
+
+  useEffect(() => {
+    if (!refocus) return;
+    nextField.current?.querySelector("input")?.focus();
+    setRefocus(false);
+  }, [refocus]);
 
   const add = () => {
     const text = next.trim();
     if (!text) return;
     const prev = lines[lines.length - 1]!.text;
     const result = check(prev, text);
-    setLines([...lines, { text, result }]);
+    setState(addLine(state, { text, result }));
     setNext("");
     setAnnounce(`${text}: ${result.explanation}`);
+  };
+
+  const remove = (action: (s: WorkingState) => WorkingState) => {
+    const after = action(state);
+    setState(after);
+    if (after.lines.length < 2) setRefocus(true);
   };
 
   const last = lines[lines.length - 1]?.result;
@@ -32,18 +60,34 @@ export function Working({ t }: { t: Strings }) {
         ))}
       </ol>
       {lines.length === 1 && (
-        <TextField label={t.problem} value={lines[0]!.text} onChange={(v) => setLines([{ text: v }])} dir="ltr" />
+        <TextField label={t.problem} value={lines[0]!.text} onChange={(v) => setState(setProblem(state, v))} dir="ltr" />
       )}
-      <TextField label={t.nextLine} value={next} onChange={setNext} onEnter={add} description={t.nextHint} dir="ltr" autoFocus />
+      <div ref={nextField}>
+        <TextField label={t.nextLine} value={next} onChange={setNext} onEnter={add} description={t.nextHint} dir="ltr" autoFocus />
+      </div>
       <div className="actions">
         <Button onPress={add}>{t.nextLine}</Button>
-        <Button isDisabled={lines.length < 2} onPress={() => setLines(lines.slice(0, -1))}>
+        <Button isDisabled={lines.length < 2} onPress={() => remove(removeLast)}>
           {t.removeLast}
         </Button>
-        <Button isDisabled={lines.length < 2} onPress={() => setLines(lines.slice(0, 1))}>
+        <Button isDisabled={lines.length < 2} onPress={() => remove(startOver)}>
           {t.startOver}
         </Button>
         {last && <span className="muted">{t.checkedIn(last.ms.toFixed(2))}</span>}
+      </div>
+      {/* Always rendered, so each new notice is announced. */}
+      <div role="status" className="notice">
+        {notice && <span>{noticeText(notice, t)}</span>}
+        {canUndo(state) && (
+          <Button
+            onPress={() => {
+              setState(undo(state));
+              setRefocus(true);
+            }}
+          >
+            {t.undo}
+          </Button>
+        )}
       </div>
       <p className="visually-hidden" aria-live="polite">
         {announce}
