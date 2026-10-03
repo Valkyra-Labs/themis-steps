@@ -55,6 +55,35 @@ test("arrow keys in the tabs follow the page direction", async ({ page }) => {
   await expect(page.getByRole("tab", { name: "Worked examples" })).toBeFocused();
 });
 
+test("a loading message shows until the engine is ready", async ({ page }) => {
+  let release = () => {};
+  const held = new Promise<void>((resolve) => (release = resolve));
+  await page.route("**/*.wasm", async (route) => {
+    await held;
+    await route.continue();
+  });
+  await page.goto("/");
+  await expect(page.getByRole("status").filter({ hasText: "Loading the engine…" })).toBeVisible();
+  release();
+  await expect(page.getByRole("tab", { name: "Check your working" })).toBeVisible();
+  await expect(page.getByText("Loading the engine…")).toHaveCount(0);
+});
+
+test("a failed engine load says so and can be retried", async ({ page }) => {
+  await page.route("**/*.wasm", (route) => route.abort());
+  await page.goto("/?lang=ar");
+  await expect(page.getByRole("alert")).toHaveText("تعذّر تحميل المحرّك. تحقّق من اتصالك ثم أعد المحاولة.");
+  // The browser's error message is English, and marked so.
+  await expect(page.locator(".load-failed code")).toHaveAttribute("lang", "en");
+  const results = await new AxeBuilder({ page }).analyze();
+  const serious = results.violations.filter((v) => v.impact === "serious" || v.impact === "critical");
+  expect(serious.map((v) => `${v.id}: ${v.nodes.length}`)).toEqual([]);
+  await page.unroute("**/*.wasm");
+  await page.getByRole("button", { name: "أعد المحاولة" }).click();
+  await expect(page.getByRole("tab", { name: "تحقّق من حلّك" })).toBeVisible();
+  await expect(page.getByRole("alert")).toHaveCount(0);
+});
+
 for (const lang of ["en", "ar"]) {
   test(`no serious or critical axe violations (${lang})`, async ({ page }) => {
     await page.goto(`/?lang=${lang}`);

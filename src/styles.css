@@ -18,6 +18,12 @@ body { margin: 0; }
 .muted { color: var(--stoa-color-text-muted); font-size: var(--stoa-font-size-sm); }
 .error { color: var(--stoa-color-down); padding: var(--stoa-space-4); }
 .content { max-inline-size: 960px; margin-inline: auto; padding: var(--stoa-space-4); }
+/* The engine's loading message; empty (and without space) once it is ready. */
+.engine-status { margin: 0; }
+.engine-status:not(:empty) { margin-block-end: var(--stoa-space-3); }
+.load-failed { display: grid; gap: var(--stoa-space-3); justify-items: start; }
+.load-failed .error { margin: 0; padding: 0; }
+.load-failed code { font-family: var(--stoa-font-family-mono); font-size: var(--stoa-font-size-sm); }
 .visually-hidden { position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 .steps { list-style: none; margin: 0 0 var(--stoa-space-4); padding: 0; display: grid; gap: var(--stoa-space-2); }
 .step {

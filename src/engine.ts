@@ -3,7 +3,19 @@
 import init, { checkStep, solve } from "themis-algebra";
 
 let ready: Promise<void> | null = null;
-export const loadEngine = () => (ready ??= init().then(() => undefined));
+
+/** Loads the engine once. A failed load is forgotten, so calling again
+ * retries it. */
+export function loadEngine(): Promise<void> {
+  ready ??= init().then(
+    () => undefined,
+    (e: unknown) => {
+      ready = null;
+      throw e;
+    },
+  );
+  return ready;
+}
 
 export type Check = {
   kind: "equivalent" | "changed" | "not_equal" | "error";

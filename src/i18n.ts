@@ -34,6 +34,10 @@ const en = {
   answerOk: "Answer correct",
   answerWrong: "Answer wrong",
   mathNote: "",
+  loading: "Loading the engine…",
+  loadFailed: "The engine could not be loaded. Check your connection and try again.",
+  retry: "Try again",
+  technicalDetails: "Technical details",
 };
 
 const ar: typeof en = {
@@ -66,6 +70,10 @@ const ar: typeof en = {
   answerOk: "الإجابة صحيحة",
   answerWrong: "الإجابة خاطئة",
   mathNote: "الشروحات التفصيلية بالإنجليزية حاليًا.",
+  loading: "جارٍ تحميل المحرّك…",
+  loadFailed: "تعذّر تحميل المحرّك. تحقّق من اتصالك ثم أعد المحاولة.",
+  retry: "أعد المحاولة",
+  technicalDetails: "تفاصيل تقنية",
 };
 
 export const strings = { en, ar };
