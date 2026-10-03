@@ -1,6 +1,6 @@
 // End-to-end checks: typing working and getting verdicts, the worked
 // examples and the audit, the Arabic interface, the theme, and axe in
-// both languages.
+// each language and theme.
 import { expect, test, type Page } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
 
@@ -180,6 +180,67 @@ test("answers typed with أو or the Arabic comma are read", async ({ page }) =>
   await expect(page.locator(".examples .step__math").nth(2)).toHaveText("x = 2 أو x = 3");
 });
 
+/** Latin letters the Arabic interface shows outside maths. Maths is text
+ * inside a <bdi> (it may hold a single letter such as x, but no word of
+ * two letters or more) or, in a plain string such as the field hint,
+ * between the Unicode isolates LRI and PDI. Excluded: the language
+ * switch's EN and AR, which are language codes. Read: every text node of
+ * the page, shown or visually hidden (live regions included), and the
+ * aria-label, title, placeholder and alt attributes, and the page title. */
+async function latinOutsideMaths(page: Page): Promise<string[]> {
+  return page.evaluate(() => {
+    const out: string[] = [];
+    const languages = document.querySelector('[role="radiogroup"][aria-label="اللغة"]');
+    const isolated = /\u2066[^\u2069]*\u2069/g;
+    const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+    for (let n = walker.nextNode(); n; n = walker.nextNode()) {
+      const el = n.parentElement!;
+      if (el.closest("script, style") || languages?.contains(el)) continue;
+      const text = (n.textContent ?? "").replace(isolated, "");
+      const words = el.closest("bdi") ? text.match(/[A-Za-z]{2,}/g) : text.match(/[A-Za-z]+/g);
+      for (const w of words ?? []) out.push(`${w} in "${n.textContent!.trim()}"`);
+    }
+    for (const el of document.querySelectorAll("[aria-label], [title], [placeholder], [alt]")) {
+      if (languages?.contains(el)) continue;
+      for (const name of ["aria-label", "title", "placeholder", "alt"]) {
+        const v = el.getAttribute(name)?.replace(isolated, "");
+        for (const w of v?.match(/[A-Za-z]+/g) ?? []) out.push(`${w} in ${name}="${v}"`);
+      }
+    }
+    for (const w of document.title.match(/[A-Za-z]+/g) ?? []) out.push(`${w} in the title`);
+    // Nothing is marked as English, apart from the language codes.
+    for (const el of document.querySelectorAll("body [lang]"))
+      if (el.getAttribute("lang") !== "ar" && !languages?.contains(el)) out.push(`lang="${el.getAttribute("lang")}" on ${el.outerHTML.slice(0, 60)}`);
+    return out;
+  });
+}
+
+test("the Arabic interface has no Latin letters outside maths", async ({ page }) => {
+  await page.goto("/?lang=ar");
+  const next = page.getByLabel("السطر التالي", { exact: true });
+  // A correct step, a wrong one, one that cannot be read, and a removal
+  // with its undo notice.
+  for (const line of ["(x - 2)(x - 3) = 0", "x = 2", "x = 2 $", "x = 1 or x + 1", "x = 3"]) {
+    await next.fill(line);
+    await next.press("Enter");
+  }
+  await page.getByRole("button", { name: "احذف السطر الأخير" }).click();
+  await expect(page.locator(".notice")).toContainText("حُذف السطر 6.");
+  expect(await latinOutsideMaths(page)).toEqual([]);
+  for (const tab of ["أمثلة محلولة", "تدقيق التمارين"]) {
+    await page.getByRole("tab", { name: tab }).click();
+    await expect(page.getByRole("tab", { name: tab })).toHaveAttribute("aria-selected", "true");
+    expect(await latinOutsideMaths(page), tab).toEqual([]);
+  }
+  // The check finds a Latin word in text, and a word inside maths.
+  await page.evaluate(() => {
+    const p = document.createElement("p");
+    p.innerHTML = "اضغط Enter <bdi>x = 2 or x = 3</bdi>";
+    document.body.append(p);
+  });
+  expect(await latinOutsideMaths(page)).toEqual(['Enter in "اضغط Enter"', 'or in "x = 2 or x = 3"']);
+});
+
 test("the theme follows the system until one is chosen", async ({ page }) => {
   await page.emulateMedia({ colorScheme: "dark" });
   await page.goto("/");
@@ -313,16 +374,23 @@ test("a failed engine load says so and can be retried", async ({ page }) => {
 });
 
 for (const lang of ["en", "ar"]) {
-  test(`no serious or critical axe violations (${lang})`, async ({ page }) => {
-    await page.goto(`/?lang=${lang}`);
-    await expect(page.locator(".step").first()).toBeVisible();
-    await expectNoSeriousViolations(page);
-    // The other tabs' panels are hidden until chosen, so axe sees each one
-    // only while it is shown.
-    for (const tab of (await page.getByRole("tab").all()).slice(1)) {
-      await tab.click();
-      await expect(tab).toHaveAttribute("aria-selected", "true");
+  for (const theme of ["light", "dark"]) {
+    test(`no serious or critical axe violations (${lang}, ${theme})`, async ({ page }) => {
+      await page.goto(`/?lang=${lang}&theme=${theme}`);
+      await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
+      // A wrong step, so an explanation and a negative badge are checked too.
+      const next = page.locator(".working input").last();
+      await next.fill("x = 2");
+      await next.press("Enter");
+      await expect(page.locator(".working .step__why")).toBeVisible();
       await expectNoSeriousViolations(page);
-    }
-  });
+      // The other tabs' panels are hidden until chosen, so axe sees each one
+      // only while it is shown.
+      for (const tab of (await page.getByRole("tab").all()).slice(1)) {
+        await tab.click();
+        await expect(tab).toHaveAttribute("aria-selected", "true");
+        await expectNoSeriousViolations(page);
+      }
+    });
+  }
 }
