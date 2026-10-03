@@ -1,8 +1,9 @@
 import { useMemo } from "react";
 import { StatusBadge } from "@valkyra-labs/stoa-react";
-import { check, solutions } from "./engine";
+import { check, solutions, type Check } from "./engine";
 import type { Strings } from "./i18n";
 import { pretty } from "./pretty";
+import { RichText } from "./RichText";
 
 // A sample of generated exercises with stated answers, as a content
 // pipeline would produce them; some answers are wrong on purpose. The
@@ -35,24 +36,30 @@ export function Audit({ t }: { t: Strings }) {
         const actual = solutions(ex.equation);
         const line = answerLine(ex.stated);
         let ok: boolean;
-        let why = "";
+        let wrong: Check | null = null;
         if (line === null) {
           ok = JSON.stringify(ex.stated) === JSON.stringify(actual);
         } else {
           const c = check(ex.equation, line);
           ok = c.kind === "equivalent";
-          why = ok
-            ? ""
-            : c.explanation
-                .replace("This step", "The stated answer")
-                .replace("the previous line does not have", "the equation does not have")
-                .replace(/ The new line is defined at .*$/, "");
+          if (!ok) wrong = c;
         }
-        return { ...ex, actual, ok, why };
+        return { ...ex, actual, ok, wrong };
       }),
     [],
   );
-  const fmt = (v: string[]) => (v.length === 0 ? t.none : v[0] === "*" ? t.every : v.join(", "));
+  // Solutions are maths, kept left to right; "no real solution" and "every
+  // x" are words, which take the interface's direction.
+  const answer = (v: string[]) =>
+    v.length === 0 ? (
+      t.none
+    ) : v[0] === "*" ? (
+      <RichText value={t.every} />
+    ) : (
+      <bdi dir="ltr" className="math">
+        {pretty(v.join(t.listSeparator))}
+      </bdi>
+    );
   const ok = rows.filter((r) => r.ok).length;
   return (
     <div className="audit">
@@ -61,7 +68,7 @@ export function Audit({ t }: { t: Strings }) {
         <strong>{t.auditSummary(ok, rows.length)}</strong>
       </p>
       <table className="stoa-table">
-        <caption className="visually-hidden">{t.tabs.audit}</caption>
+        <caption className="stoa-visually-hidden">{t.tabs.audit}</caption>
         <thead>
           <tr>
             <th scope="col">{t.exercise}</th>
@@ -73,12 +80,20 @@ export function Audit({ t }: { t: Strings }) {
         <tbody>
           {rows.map((r) => (
             <tr key={r.equation}>
-              <td dir="ltr" className="math"><bdi>{pretty(r.equation)}</bdi></td>
-              <td dir="ltr" className="math">{pretty(fmt(r.stated))}</td>
-              <td dir="ltr" className="math">{pretty(fmt(r.actual))}</td>
+              <td>
+                <bdi dir="ltr" className="math">
+                  {pretty(r.equation)}
+                </bdi>
+              </td>
+              <td>{answer(r.stated)}</td>
+              <td>{answer(r.actual)}</td>
               <td>
                 <StatusBadge tone={r.ok ? "positive" : "negative"}>{r.ok ? t.answerOk : t.answerWrong}</StatusBadge>
-                {r.why && <div className="muted" dir="ltr">{r.why}</div>}
+                {r.wrong && (
+                  <div className="muted">
+                    <RichText value={t.explain(r.wrong, "answer")} />
+                  </div>
+                )}
               </td>
             </tr>
           ))}
