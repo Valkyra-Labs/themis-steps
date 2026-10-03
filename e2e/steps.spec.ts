@@ -96,6 +96,7 @@ test("worked examples point at the first wrong line", async ({ page }) => {
   await expect(panel("Dividing by the unknown")).toContainText("First mistake: line 2");
   await expect(panel("The last line")).toContainText("First mistake: line 3");
   await expect(panel("Moving a term across")).toContainText("First mistake: line 2");
+  await expect(panel("A root that is not there")).toContainText("First mistake: line 2");
 });
 
 test("the audit finds the wrong stated answers", async ({ page }) => {

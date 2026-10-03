@@ -4,7 +4,7 @@ import { check } from "./engine";
 import type { Strings } from "./i18n";
 import { StepRow } from "./StepRow";
 
-// Worked solutions; three of them contain the mistakes learners make most.
+// Worked solutions; four of them contain the mistakes learners make most.
 const EXAMPLES: { title: string; titleAr: string; lines: string[] }[] = [
   { title: "Factorising a quadratic", titleAr: "تحليل معادلة من الدرجة الثانية", lines: ["x^2 - 5x + 6 = 0", "(x - 2)(x - 3) = 0", "x = 2 or x = 3"] },
   { title: "Dividing by the unknown", titleAr: "القسمة على المجهول", lines: ["x^2 = 5x", "x = 5"] },
