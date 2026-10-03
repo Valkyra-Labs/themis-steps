@@ -4,7 +4,8 @@ import type { Strings } from "./i18n";
 import { pretty } from "./pretty";
 
 /** One line of working with its verdict. Maths is always left to right,
- * isolated from the page direction. */
+ * isolated from the page direction. The engine's explanations are English
+ * in both interfaces, and marked so. */
 export function StepRow({ n, text, result, t }: { n: number; text: string; result?: Check; t: Strings }) {
   const badge = !result ? (
     <StatusBadge tone="neutral">{t.start}</StatusBadge>
@@ -25,12 +26,12 @@ export function StepRow({ n, text, result, t }: { n: number; text: string; resul
       </span>
       <span className="step__badge">{badge}</span>
       {result && result.kind !== "equivalent" && (
-        <p className="step__why" dir="ltr">
+        <p className="step__why" dir="ltr" lang="en">
           {result.explanation}
         </p>
       )}
       {result && result.kind === "equivalent" && result.domainWidenedAt.length > 0 && (
-        <p className="step__why" dir="ltr">
+        <p className="step__why" dir="ltr" lang="en">
           {result.explanation}
         </p>
       )}

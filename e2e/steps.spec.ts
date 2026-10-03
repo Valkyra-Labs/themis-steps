@@ -100,6 +100,25 @@ test("the Arabic interface is right to left and keeps maths left to right", asyn
   await expect(page.locator(".step__math").first()).toHaveAttribute("dir", "ltr");
 });
 
+test("English text in the Arabic interface is marked as English", async ({ page }) => {
+  await page.goto("/?lang=ar");
+  const next = page.getByLabel("السطر التالي", { exact: true });
+  await next.fill("x = 2");
+  await next.press("Enter");
+  const why = page.locator(".working .step__why");
+  await expect(why).toHaveText("This step loses x = 3.");
+  await expect(why).toHaveAttribute("lang", "en");
+  await expect(why).toHaveAttribute("dir", "ltr");
+  await expect(page.locator(".working .step__math").last()).toHaveAttribute("dir", "ltr");
+  const live = page.locator('[aria-live="polite"]').last();
+  await expect(live).toContainText("loses x = 3");
+  await expect(live).toHaveAttribute("lang", "en");
+  await page.getByRole("tab", { name: "تدقيق التمارين" }).click();
+  const reason = page.getByText("The stated answer loses x = -4.");
+  await expect(reason).toHaveAttribute("lang", "en");
+  await expect(reason).toHaveAttribute("dir", "ltr");
+});
+
 test("arrow keys in the tabs follow the page direction", async ({ page }) => {
   // React Aria takes its direction from the locale it is given, not from
   // the page; the browser here is en-US in both languages.

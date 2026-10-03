@@ -89,7 +89,8 @@ export function Working({ t }: { t: Strings }) {
           </Button>
         )}
       </div>
-      <p className="visually-hidden" aria-live="polite">
+      {/* The line and the engine's explanation, which is English. */}
+      <p className="visually-hidden" aria-live="polite" lang="en">
         {announce}
       </p>
     </div>

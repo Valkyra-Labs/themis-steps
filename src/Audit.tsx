@@ -78,7 +78,11 @@ export function Audit({ t }: { t: Strings }) {
               <td dir="ltr" className="math">{pretty(fmt(r.actual))}</td>
               <td>
                 <StatusBadge tone={r.ok ? "positive" : "negative"}>{r.ok ? t.answerOk : t.answerWrong}</StatusBadge>
-                {r.why && <div className="muted" dir="ltr">{r.why}</div>}
+                {r.why && (
+                  <div className="muted" dir="ltr" lang="en">
+                    {r.why}
+                  </div>
+                )}
               </td>
             </tr>
           ))}
