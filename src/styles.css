@@ -45,6 +45,7 @@ strong { font-weight: var(--stoa-font-weight-semibold); }
 .notice { display: flex; flex-wrap: wrap; gap: var(--stoa-space-2); align-items: center; }
 .examples { display: grid; gap: var(--stoa-space-4); }
 .math { font-family: var(--stoa-font-family-mono); }
+.inline-math { white-space: nowrap; }
 .audit td { vertical-align: top; padding-block: var(--stoa-space-2); }
 /* On a phone the field hint is the longest text on the first screen (in
    Arabic most of it), and Stoa draws it at 11px; Lighthouse's mobile audit

@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import { Button, TextField } from "@valkyra-labs/stoa-react";
-import { check } from "./engine";
+import { check, type Check } from "./engine";
 import type { Strings } from "./i18n";
 import { addLine, canUndo, removeLast, setProblem, start, startOver, undo, type Notice, type WorkingState } from "./lines";
+import { pretty } from "./pretty";
+import { RichText } from "./RichText";
 import { StepRow } from "./StepRow";
 
 function noticeText(n: Notice, t: Strings): string {
@@ -22,7 +24,9 @@ function noticeText(n: Notice, t: Strings): string {
 export function Working({ t }: { t: Strings }) {
   const [state, setState] = useState<WorkingState>(() => start("x^2 - 5x + 6 = 0"));
   const [next, setNext] = useState("");
-  const [announce, setAnnounce] = useState("");
+  // The last line checked, announced with its verdict in the current
+  // language (so a change of language does not leave the other one behind).
+  const [announce, setAnnounce] = useState<{ text: string; result: Check } | null>(null);
   const nextField = useRef<HTMLDivElement>(null);
   // Set when the control that had focus goes away (a button that becomes
   // disabled, or Undo once used); focus then moves to the next-line field.
@@ -42,7 +46,7 @@ export function Working({ t }: { t: Strings }) {
     const result = check(prev, text);
     setState(addLine(state, { text, result }));
     setNext("");
-    setAnnounce(`${text}: ${result.explanation}`);
+    setAnnounce({ text, result });
   };
 
   const remove = (action: (s: WorkingState) => WorkingState) => {
@@ -89,9 +93,13 @@ export function Working({ t }: { t: Strings }) {
           </Button>
         )}
       </div>
-      {/* The line and the engine's explanation, which is English. */}
-      <p className="stoa-visually-hidden" aria-live="polite" lang="en">
-        {announce}
+      {/* The line and the explanation of its verdict. */}
+      <p className="stoa-visually-hidden" aria-live="polite">
+        {announce && (
+          <>
+            <bdi dir="ltr">{pretty(t.showLine(announce.text))}</bdi>: <RichText value={t.explain(announce.result, "step")} />
+          </>
+        )}
       </p>
     </div>
   );

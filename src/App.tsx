@@ -41,7 +41,8 @@ export function App() {
   useLayoutEffect(() => {
     document.documentElement.lang = lang;
     document.documentElement.dir = lang === "ar" ? "rtl" : "ltr";
-  }, [lang]);
+    document.title = t.title;
+  }, [lang, t]);
 
   // The language lives in ?lang= too, so a reload or a shared link keeps it.
   // replaceState: switching language is not a step to go back through.
@@ -93,7 +94,6 @@ export function App() {
           )}
           {engine.status === "ready" && (
             <>
-              {t.mathNote && <p className="muted">{t.mathNote}</p>}
               {/* Kept mounted, so the learner's working survives a look at
                   the other tabs. */}
               <Tabs
@@ -101,7 +101,7 @@ export function App() {
                 keepMounted
                 items={[
                   { id: "working", label: t.tabs.working, content: <Working t={t} /> },
-                  { id: "examples", label: t.tabs.examples, content: <Examples t={t} lang={lang} /> },
+                  { id: "examples", label: t.tabs.examples, content: <Examples t={t} /> },
                   { id: "audit", label: t.tabs.audit, content: <Audit t={t} /> },
                 ]}
               />

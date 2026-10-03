@@ -2,10 +2,11 @@ import { StatusBadge } from "@valkyra-labs/stoa-react";
 import type { Check } from "./engine";
 import type { Strings } from "./i18n";
 import { pretty } from "./pretty";
+import { RichText } from "./RichText";
 
 /** One line of working with its verdict. Maths is always left to right,
- * isolated from the page direction. The engine's explanations are English
- * in both interfaces, and marked so. */
+ * isolated from the page direction; the explanation is in the interface's
+ * language, with its maths isolated the same way. */
 export function StepRow({ n, text, result, t }: { n: number; text: string; result?: Check; t: Strings }) {
   const badge = !result ? (
     <StatusBadge tone="neutral">{t.start}</StatusBadge>
@@ -22,17 +23,13 @@ export function StepRow({ n, text, result, t }: { n: number; text: string; resul
         {n}
       </span>
       <span className="step__math" dir="ltr">
-        <bdi>{pretty(text)}</bdi>
+        <bdi>{pretty(t.showLine(text))}</bdi>
       </span>
       <span className="step__badge">{badge}</span>
-      {result && result.kind !== "equivalent" && (
-        <p className="step__why" dir="ltr" lang="en">
-          {result.explanation}
-        </p>
-      )}
-      {result && result.kind === "equivalent" && result.domainWidenedAt.length > 0 && (
-        <p className="step__why" dir="ltr" lang="en">
-          {result.explanation}
+      {/* A correct step is explained only when it widens the domain. */}
+      {result && (result.kind !== "equivalent" || result.domainWidenedAt.length > 0) && (
+        <p className="step__why">
+          <RichText value={t.explain(result, "step")} />
         </p>
       )}
     </li>

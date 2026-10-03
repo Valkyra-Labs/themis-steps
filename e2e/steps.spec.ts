@@ -129,23 +129,50 @@ test("the chosen language survives a reload", async ({ page }) => {
   await expect(page.getByRole("tab", { name: "Check your working" })).toBeVisible();
 });
 
-test("English text in the Arabic interface is marked as English", async ({ page }) => {
+test("the Arabic interface explains each verdict in Arabic, with maths left to right", async ({ page }) => {
   await page.goto("/?lang=ar");
   const next = page.getByLabel("السطر التالي", { exact: true });
   await next.fill("x = 2");
   await next.press("Enter");
   const why = page.locator(".working .step__why");
-  await expect(why).toHaveText("This step loses x = 3.");
-  await expect(why).toHaveAttribute("lang", "en");
-  await expect(why).toHaveAttribute("dir", "ltr");
+  await expect(why).toHaveText("تفقد هذه الخطوة الحل x = 3.");
+  // The sentence takes the page's direction and language; its maths is isolated.
+  await expect(why).not.toHaveAttribute("lang");
+  await expect(why).toHaveCSS("direction", "rtl");
+  await expect(why.locator("bdi")).toHaveText("x = 3");
+  await expect(why.locator("bdi")).toHaveAttribute("dir", "ltr");
   await expect(page.locator(".working .step__math").last()).toHaveAttribute("dir", "ltr");
   const live = page.locator('[aria-live="polite"]').last();
-  await expect(live).toContainText("loses x = 3");
-  await expect(live).toHaveAttribute("lang", "en");
+  await expect(live).toHaveText("x = 2: تفقد هذه الخطوة الحل x = 3.");
+  await expect(live).not.toHaveAttribute("lang");
+  await next.fill("x = 2 $");
+  await next.press("Enter");
+  await expect(why.last()).toHaveText("السطر 2: لم يُتوقَّع «$» في الموضع 7");
   await page.getByRole("tab", { name: "تدقيق التمارين" }).click();
-  const reason = page.getByText("The stated answer loses x = -4.");
-  await expect(reason).toHaveAttribute("lang", "en");
-  await expect(reason).toHaveAttribute("dir", "ltr");
+  await expect(page.getByText("تفقد الإجابة المعلنة الحل x = -4.")).toBeVisible();
+  await expect(page.getByText("تضيف الإجابة المعلنة الحل x = 2، وهو ليس حلًّا للمعادلة.")).toBeVisible();
+  await expect(page.getByText("9 من 12 إجابة معلنة صحيحة")).toBeVisible();
+});
+
+test("answers typed with أو or the Arabic comma are read", async ({ page }) => {
+  await page.goto("/?lang=ar");
+  const next = page.getByLabel("السطر التالي", { exact: true });
+  await expect(page.locator(".working .stoa-field__description")).toHaveText(
+    "اضغط مفتاح الإدخال للتحقق. اكتب الإجابات هكذا: \u2066x\u00a0=\u00a02\u00a0أو\u00a0x\u00a0=\u00a03\u2069، أو \u2066x\u00a0=\u00a0±3\u2069.",
+  );
+  await next.fill("(x - 2)(x - 3) = 0");
+  await next.press("Enter");
+  await next.fill("x = 2 أو x = 3");
+  await next.press("Enter");
+  await next.fill("x = 3، x = 2");
+  await next.press("Enter");
+  const steps = page.locator(".working .step");
+  await expect(steps).toHaveCount(4);
+  await expect(steps.nth(2)).toContainText("صحيح");
+  await expect(steps.nth(3)).toContainText("صحيح");
+  // An English answer line is shown with the Arabic word in the Arabic interface.
+  await page.getByRole("tab", { name: "أمثلة محلولة" }).click();
+  await expect(page.locator(".examples .step__math").nth(2)).toHaveText("x = 2 أو x = 3");
 });
 
 test("the Arabic audit keeps words right to left and maths left to right", async ({ page }) => {

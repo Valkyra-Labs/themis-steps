@@ -5,16 +5,17 @@ import type { Strings } from "./i18n";
 import { StepRow } from "./StepRow";
 
 // Worked solutions; four of them contain the mistakes learners make most.
-const EXAMPLES: { title: string; titleAr: string; lines: string[] }[] = [
-  { title: "Factorising a quadratic", titleAr: "تحليل معادلة من الدرجة الثانية", lines: ["x^2 - 5x + 6 = 0", "(x - 2)(x - 3) = 0", "x = 2 or x = 3"] },
-  { title: "Dividing by the unknown", titleAr: "القسمة على المجهول", lines: ["x^2 = 5x", "x = 5"] },
-  { title: "The last line", titleAr: "السطر الأخير", lines: ["x^2 - 9 = 0", "x^2 = 9", "x = 3"] },
-  { title: "Moving a term across", titleAr: "نقل حدّ إلى الطرف الآخر", lines: ["3x + 4 = 10 - x", "3x - x = 10 - 4", "2x = 6", "x = 3"] },
-  { title: "A root that is not there", titleAr: "جذر غير موجود", lines: ["x/(x - 1) = 1/(x - 1)", "x = 1"] },
-  { title: "Clearing a fraction, correctly", titleAr: "التخلص من الكسر بشكل صحيح", lines: ["(x + 1)/2 = x - 1", "x + 1 = 2(x - 1)", "x + 1 = 2x - 2", "x = 3"] },
+// The titles are in the language tables, under the same keys.
+const EXAMPLES: { id: keyof Strings["exampleTitles"]; lines: string[] }[] = [
+  { id: "factorising", lines: ["x^2 - 5x + 6 = 0", "(x - 2)(x - 3) = 0", "x = 2 or x = 3"] },
+  { id: "dividing", lines: ["x^2 = 5x", "x = 5"] },
+  { id: "lastLine", lines: ["x^2 - 9 = 0", "x^2 = 9", "x = 3"] },
+  { id: "moving", lines: ["3x + 4 = 10 - x", "3x - x = 10 - 4", "2x = 6", "x = 3"] },
+  { id: "notThere", lines: ["x/(x - 1) = 1/(x - 1)", "x = 1"] },
+  { id: "clearing", lines: ["(x + 1)/2 = x - 1", "x + 1 = 2(x - 1)", "x + 1 = 2x - 2", "x = 3"] },
 ];
 
-export function Examples({ t, lang }: { t: Strings; lang: "en" | "ar" }) {
+export function Examples({ t }: { t: Strings }) {
   const checked = useMemo(
     () =>
       EXAMPLES.map((ex) => ({
@@ -29,7 +30,7 @@ export function Examples({ t, lang }: { t: Strings; lang: "en" | "ar" }) {
       {checked.map((ex) => {
         const first = ex.results.findIndex((r) => r && r.kind !== "equivalent");
         return (
-          <Panel key={ex.title} title={lang === "ar" ? ex.titleAr : ex.title}>
+          <Panel key={ex.id} title={t.exampleTitles[ex.id]}>
             <p>
               {first < 0 ? (
                 <StatusBadge tone="positive">{t.allCorrect}</StatusBadge>
