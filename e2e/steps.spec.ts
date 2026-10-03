@@ -119,6 +119,27 @@ test("English text in the Arabic interface is marked as English", async ({ page 
   await expect(reason).toHaveAttribute("dir", "ltr");
 });
 
+test("Arabic text has a font file for each weight it is drawn in", async ({ page }) => {
+  // Without one the browser synthesises bold from the regular face.
+  await page.goto("/?lang=ar");
+  for (const tab of ["تحقّق من حلّك", "أمثلة محلولة", "تدقيق التمارين"]) {
+    await page.getByRole("tab", { name: tab }).click();
+    const missing = await page.evaluate(async () => {
+      await document.fonts.ready;
+      const weights = new Set<string>();
+      for (const el of document.querySelectorAll("body *")) {
+        const own = [...el.childNodes].filter((n) => n.nodeType === Node.TEXT_NODE).map((n) => n.textContent).join("");
+        if (/[\u0600-\u06FF]/.test(own)) weights.add(getComputedStyle(el).fontWeight);
+      }
+      const loaded = new Set(
+        [...document.fonts].filter((f) => f.family.replace(/"/g, "") === "IBM Plex Sans Arabic" && f.status === "loaded").map((f) => f.weight),
+      );
+      return [...weights].filter((w) => !loaded.has(w));
+    });
+    expect(missing, tab).toEqual([]);
+  }
+});
+
 test("arrow keys in the tabs follow the page direction", async ({ page }) => {
   // React Aria takes its direction from the locale it is given, not from
   // the page; the browser here is en-US in both languages.

@@ -1,6 +1,12 @@
+/* Every weight the interface uses, in both scripts, so the browser never
+   synthesises bold: regular, Stoa's medium (badges, panel titles) and
+   semibold (headings and strong text below). */
 @import "@fontsource/ibm-plex-sans/400.css";
 @import "@fontsource/ibm-plex-sans/500.css";
+@import "@fontsource/ibm-plex-sans/600.css";
 @import "@fontsource/ibm-plex-sans-arabic/400.css";
+@import "@fontsource/ibm-plex-sans-arabic/500.css";
+@import "@fontsource/ibm-plex-sans-arabic/600.css";
 @import "@fontsource/ibm-plex-mono/400.css";
 @import "@valkyra-labs/stoa-react/styles.css";
 
@@ -13,7 +19,8 @@
 }
 body { margin: 0; }
 .bar { display: flex; flex-wrap: wrap; gap: var(--stoa-space-3); align-items: baseline; padding: var(--stoa-space-3) var(--stoa-space-4); border-block-end: 1px solid var(--stoa-color-border); background: var(--stoa-color-surface); }
-.bar h1 { font-size: var(--stoa-font-size-lg); margin: 0; }
+.bar h1 { font-size: var(--stoa-font-size-lg); font-weight: var(--stoa-font-weight-semibold); margin: 0; }
+strong { font-weight: var(--stoa-font-weight-semibold); }
 .spacer { flex: 1; }
 .muted { color: var(--stoa-color-text-muted); font-size: var(--stoa-font-size-sm); }
 .error { color: var(--stoa-color-down); padding: var(--stoa-space-4); }
