@@ -43,6 +43,16 @@ export function App() {
     document.documentElement.dir = lang === "ar" ? "rtl" : "ltr";
   }, [lang]);
 
+  // The language lives in ?lang= too, so a reload or a shared link keeps it.
+  // replaceState: switching language is not a step to go back through.
+  const switchLang = () => {
+    const next: Lang = lang === "en" ? "ar" : "en";
+    const url = new URL(location.href);
+    url.searchParams.set("lang", next);
+    history.replaceState(history.state, "", url);
+    setLang(next);
+  };
+
   const loading = engine.status === "loading" || (engine.status === "failed" && engine.retrying);
 
   // React Aria (and Stoa through it) takes its locale from here, not from
@@ -56,7 +66,7 @@ export function App() {
           <h1>{t.title}</h1>
           <span className="muted">{t.tagline}</span>
           <span className="spacer" />
-          <Button onPress={() => setLang(lang === "en" ? "ar" : "en")}>
+          <Button onPress={switchLang}>
             <span lang={lang === "en" ? "ar" : "en"}>{t.language}</span>
           </Button>
         </header>

@@ -112,6 +112,22 @@ test("the Arabic interface is right to left and keeps maths left to right", asyn
   await expect(page.locator(".step__math").first()).toHaveAttribute("dir", "ltr");
 });
 
+test("the chosen language survives a reload", async ({ page }) => {
+  await page.goto("/?from=link");
+  await page.getByRole("button", { name: "العربية" }).click();
+  await expect(page.locator("html")).toHaveAttribute("lang", "ar");
+  // The other parameters stay as they were.
+  expect(new URL(page.url()).searchParams.get("from")).toBe("link");
+  expect(new URL(page.url()).searchParams.get("lang")).toBe("ar");
+  await page.reload();
+  await expect(page.locator("html")).toHaveAttribute("dir", "rtl");
+  await expect(page.getByRole("tab", { name: "تحقّق من حلّك" })).toBeVisible();
+  await page.getByRole("button", { name: "English" }).click();
+  await page.reload();
+  await expect(page.locator("html")).toHaveAttribute("lang", "en");
+  await expect(page.getByRole("tab", { name: "Check your working" })).toBeVisible();
+});
+
 test("English text in the Arabic interface is marked as English", async ({ page }) => {
   await page.goto("/?lang=ar");
   const next = page.getByLabel("السطر التالي", { exact: true });
