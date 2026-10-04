@@ -24,7 +24,7 @@ body { margin: 0; }
 strong { font-weight: var(--stoa-font-weight-semibold); }
 .muted { color: var(--stoa-color-text-muted); font-size: var(--stoa-font-size-sm); }
 .error { color: var(--stoa-color-down); padding: var(--stoa-space-4); }
-.content { max-inline-size: 960px; margin-inline: auto; padding: var(--stoa-space-4); }
+.content { max-inline-size: 960px; margin-inline: auto; }
 /* The engine's loading message; empty (and without space) once it is ready. */
 .engine-status { margin: 0; }
 .engine-status:not(:empty) { margin-block-end: var(--stoa-space-3); }

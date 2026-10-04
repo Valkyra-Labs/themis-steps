@@ -415,3 +415,34 @@ for (const lang of ["en", "ar"]) {
     });
   }
 }
+
+test("the header stays at the top and the page scrolls under it, with Stoa's scrollbars", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("tab", { name: "Worked examples" }).click();
+  const banner = page.getByRole("banner");
+  const before = (await banner.boundingBox())!;
+  const scroll = page.locator(".stoa-page-shell__scroll");
+  await scroll.evaluate((el) => el.scrollTo({ top: el.scrollHeight }));
+  await expect.poll(() => scroll.evaluate((el) => el.scrollTop)).toBeGreaterThan(0);
+  expect(await banner.boundingBox()).toEqual(before);
+  expect(await page.evaluate(() => document.scrollingElement!.scrollHeight > window.innerHeight)).toBe(false);
+  const region = (await scroll.boundingBox())!;
+  expect(region.y).toBeGreaterThanOrEqual(before.y + before.height - 1);
+  for (const theme of ["Light", "Dark"]) {
+    await page.getByRole("radio", { name: theme }).click();
+    const style = await scroll.evaluate((el) => {
+      const probe = (name: string) => {
+        const span = document.createElement("span");
+        span.style.color = `var(${name})`;
+        el.appendChild(span);
+        const value = getComputedStyle(span).color;
+        span.remove();
+        return value;
+      };
+      const own = getComputedStyle(el);
+      return { width: own.scrollbarWidth, color: own.scrollbarColor, expected: `${probe("--stoa-color-scrollbar-thumb")} ${probe("--stoa-color-scrollbar-track")}` };
+    });
+    expect(style.width, theme).toBe("thin");
+    expect(style.color, theme).toBe(style.expected);
+  }
+});
