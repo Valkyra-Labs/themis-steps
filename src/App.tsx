@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useState } from "react";
-import { Button, ChoiceGroup, Disclosure, I18nProvider, Tabs } from "@valkyra-labs/stoa-react";
+import { AppHeader, Button, ChoiceGroup, Disclosure, I18nProvider, Tabs } from "@valkyra-labs/stoa-react";
 import { loadEngine } from "./engine";
 import { strings, type Lang } from "./i18n";
 import { chosenTheme, onSystemTheme, rememberTheme, setParam, systemTheme, type Theme } from "./settings";
@@ -81,36 +81,37 @@ export function App() {
   return (
     <I18nProvider locale={lang === "ar" ? "ar" : "en-US"}>
       <div className="app">
-        <header className="bar">
-          <h1>{t.title}</h1>
-          <span className="muted">{t.tagline}</span>
-          <span className="spacer" />
-          <div className="switches">
-            <ChoiceGroup<Theme>
-              label={t.theme}
-              size="small"
-              value={theme.value}
-              onChange={chooseTheme}
-              choices={[
-                { id: "light", label: t.light },
-                { id: "dark", label: t.dark },
-              ]}
-            />
-            {/* Language codes, the same in both interfaces; in the Arabic
-                one they are the only Latin letters outside maths, and are
-                marked as such. */}
-            <ChoiceGroup<Lang>
-              label={t.language}
-              size="small"
-              value={lang}
-              onChange={switchLang}
-              choices={[
-                { id: "en", label: <span lang={lang === "ar" ? "en" : undefined}>EN</span> },
-                { id: "ar", label: <span lang={lang === "ar" ? "en" : undefined}>AR</span> },
-              ]}
-            />
-          </div>
-        </header>
+        <AppHeader
+          title={t.title}
+          subtitle={t.tagline}
+          actions={
+            <>
+              <ChoiceGroup<Theme>
+                label={t.theme}
+                size="small"
+                value={theme.value}
+                onChange={chooseTheme}
+                choices={[
+                  { id: "light", label: t.light },
+                  { id: "dark", label: t.dark },
+                ]}
+              />
+              {/* Language codes, the same in both interfaces; in the Arabic
+                  one they are the only Latin letters outside maths, and are
+                  marked as such. */}
+              <ChoiceGroup<Lang>
+                label={t.language}
+                size="small"
+                value={lang}
+                onChange={switchLang}
+                choices={[
+                  { id: "en", label: <span lang={lang === "ar" ? "en" : undefined}>EN</span> },
+                  { id: "ar", label: <span lang={lang === "ar" ? "en" : undefined}>AR</span> },
+                ]}
+              />
+            </>
+          }
+        />
         <main className="content">
           {/* Always rendered, so a retry's loading message is announced. */}
           <p role="status" className="muted engine-status">

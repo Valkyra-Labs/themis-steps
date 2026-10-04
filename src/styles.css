@@ -21,11 +21,7 @@
 :root[data-theme="light"] { color-scheme: light; }
 :root[data-theme="dark"] { color-scheme: dark; }
 body { margin: 0; }
-.bar { display: flex; flex-wrap: wrap; gap: var(--stoa-space-3); align-items: baseline; padding: var(--stoa-space-3) var(--stoa-space-4); border-block-end: 1px solid var(--stoa-color-border); background: var(--stoa-color-surface); }
-.bar h1 { font-size: var(--stoa-font-size-lg); font-weight: var(--stoa-font-weight-semibold); margin: 0; }
 strong { font-weight: var(--stoa-font-weight-semibold); }
-.spacer { flex: 1; }
-.switches { display: flex; flex-wrap: wrap; gap: var(--stoa-space-3); align-self: center; }
 .muted { color: var(--stoa-color-text-muted); font-size: var(--stoa-font-size-sm); }
 .error { color: var(--stoa-color-down); padding: var(--stoa-space-4); }
 .content { max-inline-size: 960px; margin-inline: auto; padding: var(--stoa-space-4); }
