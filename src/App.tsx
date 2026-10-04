@@ -1,8 +1,8 @@
 import { useEffect, useLayoutEffect, useState } from "react";
-import { Button, ChoiceGroup, Disclosure, I18nProvider, Tabs } from "@valkyra-labs/stoa-react";
+import { AppHeader, Button, ChoiceGroup, Disclosure, I18nProvider, PageShell, Tabs } from "@valkyra-labs/stoa-react";
 import { loadEngine } from "./engine";
 import { strings, type Lang } from "./i18n";
-import { chosenTheme, onSystemTheme, rememberTheme, setParam, systemTheme, type Theme } from "./settings";
+import { chosenTheme, forgetTheme, rememberTheme, setParam, type Theme, type ThemeChoice } from "./settings";
 import { Working } from "./Working";
 import { Examples } from "./Examples";
 import { Audit } from "./Audit";
@@ -19,11 +19,8 @@ export function App() {
   const [attempt, setAttempt] = useState(0);
   const [lang, setLang] = useState<Lang>(() => (new URLSearchParams(location.search).get("lang") === "ar" ? "ar" : "en"));
   const t = strings[lang];
-  // `chosen` is false while the theme follows the system.
-  const [theme, setTheme] = useState<{ value: Theme; chosen: boolean }>(() => {
-    const chosen = chosenTheme();
-    return chosen ? { value: chosen, chosen: true } : { value: systemTheme(), chosen: false };
-  });
+  // Null while the theme follows the system (the switch shows System).
+  const [theme, setTheme] = useState<Theme | null>(chosenTheme);
 
   useEffect(() => {
     let live = true;
@@ -50,20 +47,20 @@ export function App() {
     document.title = t.title;
   }, [lang, t]);
 
-  // Without data-theme Stoa's tokens follow the system; the switch shows
-  // which theme that is, and keeps up with it until a theme is chosen.
+  // Without data-theme Stoa's tokens follow the system.
   useLayoutEffect(() => {
-    if (theme.chosen) document.documentElement.dataset.theme = theme.value;
+    if (theme) document.documentElement.dataset.theme = theme;
     else delete document.documentElement.dataset.theme;
   }, [theme]);
-  useEffect(() => {
-    if (theme.chosen) return;
-    return onSystemTheme((value) => setTheme({ value, chosen: false }));
-  }, [theme.chosen]);
 
-  const chooseTheme = (value: Theme) => {
-    rememberTheme(value);
-    setTheme({ value, chosen: true });
+  const chooseTheme = (value: ThemeChoice) => {
+    if (value === "system") {
+      forgetTheme();
+      setTheme(null);
+    } else {
+      rememberTheme(value);
+      setTheme(value);
+    }
   };
 
   // The language lives in ?lang= too, so a reload or a shared link keeps it.
@@ -80,38 +77,43 @@ export function App() {
   // maths does.
   return (
     <I18nProvider locale={lang === "ar" ? "ar" : "en-US"}>
-      <div className="app">
-        <header className="bar">
-          <h1>{t.title}</h1>
-          <span className="muted">{t.tagline}</span>
-          <span className="spacer" />
-          <div className="switches">
-            <ChoiceGroup<Theme>
-              label={t.theme}
-              size="small"
-              value={theme.value}
-              onChange={chooseTheme}
-              choices={[
-                { id: "light", label: t.light },
-                { id: "dark", label: t.dark },
-              ]}
-            />
-            {/* Language codes, the same in both interfaces; in the Arabic
-                one they are the only Latin letters outside maths, and are
-                marked as such. */}
-            <ChoiceGroup<Lang>
-              label={t.language}
-              size="small"
-              value={lang}
-              onChange={switchLang}
-              choices={[
-                { id: "en", label: <span lang={lang === "ar" ? "en" : undefined}>EN</span> },
-                { id: "ar", label: <span lang={lang === "ar" ? "en" : undefined}>AR</span> },
-              ]}
-            />
-          </div>
-        </header>
-        <main className="content">
+      <PageShell
+        header={
+          <AppHeader
+            title={t.title}
+            subtitle={t.tagline}
+            actions={
+              <>
+                <ChoiceGroup<ThemeChoice>
+                  label={t.theme}
+                  size="small"
+                  value={theme ?? "system"}
+                  onChange={chooseTheme}
+                  choices={[
+                    { id: "system", label: t.system },
+                    { id: "light", label: t.light },
+                    { id: "dark", label: t.dark },
+                  ]}
+                />
+                {/* Language codes, the same in both interfaces; in the Arabic
+                    one they are the only Latin letters outside maths, and are
+                    marked as such. */}
+                <ChoiceGroup<Lang>
+                  label={t.language}
+                  size="small"
+                  value={lang}
+                  onChange={switchLang}
+                  choices={[
+                    { id: "en", label: <span lang={lang === "ar" ? "en" : undefined}>EN</span> },
+                    { id: "ar", label: <span lang={lang === "ar" ? "en" : undefined}>AR</span> },
+                  ]}
+                />
+              </>
+            }
+          />
+        }
+      >
+        <div className="content">
           {/* Always rendered, so a retry's loading message is announced. */}
           <p role="status" className="muted engine-status">
             {loading && t.loading}
@@ -147,8 +149,8 @@ export function App() {
               />
             </>
           )}
-        </main>
-      </div>
+        </div>
+      </PageShell>
     </I18nProvider>
   );
 }
