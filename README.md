@@ -1,5 +1,18 @@
 # Themis Steps
 
+[![CI](https://github.com/Valkyra-Labs/themis-steps/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/Valkyra-Labs/themis-steps/actions/workflows/ci.yml)
+[![License: MIT OR Apache-2.0](https://img.shields.io/badge/License-MIT%20OR%20Apache--2.0-blue.svg)](#license)
+[![Unit tests](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/Valkyra-Labs/themis-steps/badges/unit-tests.json)](#badges)
+[![e2e](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/Valkyra-Labs/themis-steps/badges/e2e.json)](#badges)
+[![axe](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/Valkyra-Labs/themis-steps/badges/axe.json)](#badges)
+[![Lighthouse accessibility](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/Valkyra-Labs/themis-steps/badges/lighthouse-accessibility.json)](#badges)
+[![Lighthouse best practices](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/Valkyra-Labs/themis-steps/badges/lighthouse-best-practices.json)](#badges)
+[![Lighthouse SEO](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/Valkyra-Labs/themis-steps/badges/lighthouse-seo.json)](#badges)
+[![Bundle gzip](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/Valkyra-Labs/themis-steps/badges/bundle-size.json)](#badges)
+
+The test, axe, Lighthouse and size badges are measured and published by
+CI from `main`; what each one counts is under [Badges](#badges).
+
 Write algebra line by line; each line is checked against the previous
 one by what it means, not by how it is written. A wrong step is named
 exactly: the roots it loses or gains, and any change of domain.
@@ -46,6 +59,36 @@ pnpm install && pnpm dev
 ```bash
 pnpm test && pnpm e2e
 ```
+
+`pnpm e2e` drives the dev server on 5175 and reuses one already running
+there. `E2E_PORT` moves it to another port, and `E2E_PREVIEW=1` tests the
+production build (after `pnpm build`) through `vite preview`, as CI does:
+
+```bash
+pnpm build && E2E_PREVIEW=1 E2E_PORT=4181 pnpm e2e
+```
+
+### Badges
+
+CI checks out this repository, stoa-system and themis-algebra side by
+side, builds the engine with wasm-pack and Stoa, then builds and tests
+the app. Each green run on `main` publishes the dynamic badges to the
+`badges` branch, as JSON that img.shields.io reads; `scripts/badges.mjs`
+builds them from that run's own output and stops, publishing nothing,
+when a value cannot be read.
+
+- Unit tests: Vitest tests passed (`pnpm test`).
+- e2e: Playwright tests passed in Chromium against `vite preview` of the
+  build (`e2e/`).
+- axe: axe-core 4.13.0 in the e2e, on each of the three tabs in English
+  and Arabic, light and dark; a serious or critical violation fails the
+  run.
+- Lighthouse: Lighthouse 12 accessibility, best practices and SEO scores
+  for the home page served by `vite preview`, the lower of the desktop
+  and mobile runs. Performance is not shown: on a shared CI runner it
+  measures the runner.
+- Bundle gzip: every JavaScript and CSS file in `dist/`, gzip level 9,
+  summed. The engine's WebAssembly and the fonts are not included.
 
 ## License
 
