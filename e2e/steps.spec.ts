@@ -4,10 +4,13 @@
 import { expect, test, type Page } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
 
-async function expectNoSeriousViolations(page: Page) {
+// `scan`, when given, names what was scanned; it is recorded as an
+// annotation that scripts/badges.mjs reads to state the axe matrix.
+async function expectNoSeriousViolations(page: Page, scan?: Record<string, string>) {
   const results = await new AxeBuilder({ page }).analyze();
   const serious = results.violations.filter((v) => v.impact === "serious" || v.impact === "critical");
   expect(serious.map((v) => `${v.id}: ${v.nodes.length}`)).toEqual([]);
+  if (scan) test.info().annotations.push({ type: "axe-scan", description: JSON.stringify(scan) });
 }
 
 test("typing a line checks it against the previous one", async ({ page }) => {
@@ -404,13 +407,15 @@ for (const lang of ["en", "ar"]) {
       await next.fill("x = 2");
       await next.press("Enter");
       await expect(page.locator(".working .step__why")).toBeVisible();
-      await expectNoSeriousViolations(page);
+      const tabs = await page.getByRole("tab").all();
+      await expectNoSeriousViolations(page, { lang, theme, tab: "1" });
       // The other tabs' panels are hidden until chosen, so axe sees each one
       // only while it is shown.
-      for (const tab of (await page.getByRole("tab").all()).slice(1)) {
+      for (const [i, tab] of tabs.entries()) {
+        if (i === 0) continue;
         await tab.click();
         await expect(tab).toHaveAttribute("aria-selected", "true");
-        await expectNoSeriousViolations(page);
+        await expectNoSeriousViolations(page, { lang, theme, tab: String(i + 1) });
       }
     });
   }
