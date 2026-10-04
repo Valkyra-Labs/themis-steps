@@ -1,18 +1,21 @@
-// The interface's settings. Language lives in ?lang=. Theme is light or
-// dark: Stoa's tokens follow the system until <html> carries data-theme;
-// a choice made here is kept in ?theme= (for a shared link) and in
-// localStorage (for the next visit), the link winning.
+// The interface's settings. Language lives in ?lang=. Theme is System,
+// Light or Dark: Stoa's tokens follow the system until <html> carries
+// data-theme; a Light or Dark choice is kept in ?theme= (for a shared
+// link) and in localStorage (for the next visit), the link winning, and
+// System clears both (`?theme=system` asks for it in a link).
 
 export type Theme = "light" | "dark";
+export type ThemeChoice = Theme | "system";
 
 const KEY = "themis-steps.theme";
-const DARK = "(prefers-color-scheme: dark)";
 
 const read = (v: string | null): Theme | null => (v === "light" || v === "dark" ? v : null);
 
 /** The theme chosen earlier, or null to follow the system. */
 export function chosenTheme(): Theme | null {
-  const fromUrl = read(new URLSearchParams(location.search).get("theme"));
+  const asked = new URLSearchParams(location.search).get("theme");
+  if (asked === "system") return null;
+  const fromUrl = read(asked);
   if (fromUrl) return fromUrl;
   try {
     return read(localStorage.getItem(KEY));
@@ -22,24 +25,24 @@ export function chosenTheme(): Theme | null {
   }
 }
 
-export function systemTheme(): Theme {
-  return matchMedia(DARK).matches ? "dark" : "light";
-}
-
-/** Calls back when the system theme changes; returns the unsubscribe. */
-export function onSystemTheme(callback: (theme: Theme) => void): () => void {
-  const query = matchMedia(DARK);
-  const listener = () => callback(query.matches ? "dark" : "light");
-  query.addEventListener("change", listener);
-  return () => query.removeEventListener("change", listener);
-}
-
 export function rememberTheme(theme: Theme) {
   setParam("theme", theme);
   try {
     localStorage.setItem(KEY, theme);
   } catch {
     // Not kept for the next visit; the link still carries it.
+  }
+}
+
+/** Back to the system: no theme in the link, none remembered. */
+export function forgetTheme() {
+  const url = new URL(location.href);
+  url.searchParams.delete("theme");
+  history.replaceState(history.state, "", url);
+  try {
+    localStorage.removeItem(KEY);
+  } catch {
+    // Nothing was remembered where storage is blocked.
   }
 }
 
