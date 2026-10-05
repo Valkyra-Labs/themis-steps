@@ -1,8 +1,8 @@
 import { useEffect, useLayoutEffect, useState } from "react";
-import { AppHeader, Button, ChoiceGroup, Disclosure, I18nProvider, PageShell, Tabs } from "@valkyra-labs/stoa-react";
+import { AppHeader, Button, ChoiceGroup, Disclosure, I18nProvider, PageShell, Tabs, applyLanguage } from "@valkyra-labs/stoa-react";
 import { loadEngine } from "./engine";
 import { strings, type Lang } from "./i18n";
-import { chosenTheme, forgetTheme, rememberTheme, setParam, type Theme, type ThemeChoice } from "./settings";
+import { chosenLang, chosenTheme, forgetTheme, rememberTheme, setParam, type Theme, type ThemeChoice } from "./settings";
 import { Working } from "./Working";
 import { Examples } from "./Examples";
 import { Audit } from "./Audit";
@@ -17,7 +17,7 @@ type EngineState =
 export function App() {
   const [engine, setEngine] = useState<EngineState>({ status: "loading" });
   const [attempt, setAttempt] = useState(0);
-  const [lang, setLang] = useState<Lang>(() => (new URLSearchParams(location.search).get("lang") === "ar" ? "ar" : "en"));
+  const [lang, setLang] = useState<Lang>(chosenLang);
   const t = strings[lang];
   // Null while the theme follows the system (the switch shows System).
   const [theme, setTheme] = useState<Theme | null>(chosenTheme);
@@ -39,11 +39,11 @@ export function App() {
     setAttempt((a) => a + 1);
   };
 
-  // The page direction follows the language; maths stays left to right.
-  // Set before paint, so an Arabic page never shows a left-to-right frame.
+  // The page direction follows the language (main.tsx sets the first one
+  // before rendering); maths stays left to right. Set before paint, so a
+  // switch of language never shows a frame in the other direction.
   useLayoutEffect(() => {
-    document.documentElement.lang = lang;
-    document.documentElement.dir = lang === "ar" ? "rtl" : "ltr";
+    applyLanguage(lang);
     document.title = t.title;
   }, [lang, t]);
 

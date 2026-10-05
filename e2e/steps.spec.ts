@@ -199,6 +199,26 @@ test("the Arabic interface is right to left and keeps maths left to right", asyn
   await expect(page.locator(".step__math").first()).toHaveAttribute("dir", "ltr");
 });
 
+test("an Arabic page is right to left before the app draws anything", async ({ page }) => {
+  // Records, in order, the root element's direction changes and the app's
+  // first content.
+  await page.addInitScript(() => {
+    const seen: string[] = [];
+    (window as unknown as { seen: string[] }).seen = seen;
+    new MutationObserver((records) => {
+      for (const r of records) {
+        if (r.type === "attributes" && r.target === document.documentElement && r.attributeName === "dir") seen.push(`dir=${document.documentElement.dir}`);
+        if (r.type === "childList" && (r.target as Element).id === "root" && r.addedNodes.length > 0) seen.push("content");
+      }
+    }).observe(document, { subtree: true, childList: true, attributes: true, attributeFilter: ["dir"] });
+  });
+  await page.goto("/?lang=ar");
+  await expect(page.getByRole("tab").first()).toBeVisible();
+  const seen = await page.evaluate(() => (window as unknown as { seen: string[] }).seen);
+  expect(seen.slice(0, 2)).toEqual(["dir=rtl", "content"]);
+  await expect(page.locator("html")).toHaveAttribute("lang", "ar");
+});
+
 test("the chosen language survives a reload", async ({ page }) => {
   await page.goto("/?from=link");
   await expect(page.getByRole("radiogroup", { name: "Language" })).toBeVisible();
