@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Button, TextField } from "@valkyra-labs/stoa-react";
 import { check, type Check } from "./engine";
 import type { Strings } from "./i18n";
-import { addLine, canUndo, removeLast, setProblem, start, startOver, undo, type Notice, type WorkingState } from "./lines";
+import { addLine, canUndo, isChecking, removeLast, setProblem, setResult, start, startOver, undo, type Notice, type WorkingState } from "./lines";
 import { pretty } from "./pretty";
 import { RichText } from "./RichText";
 import { StepRow } from "./StepRow";
@@ -19,8 +19,9 @@ function noticeText(n: Notice, t: Strings): string {
 }
 
 /** The learner writes the working; each line is checked against the one
- * before it as soon as Enter is pressed. Removing lines can be undone
- * until the next edit. */
+ * before it as soon as Enter is pressed, in the engine's worker, and shows
+ * that it is being checked until its verdict arrives. Removing lines can
+ * be undone until the next edit. */
 export function Working({ t }: { t: Strings }) {
   const [state, setState] = useState<WorkingState>(() => start("x^2 - 5x + 6 = 0"));
   const [next, setNext] = useState("");
@@ -39,13 +40,17 @@ export function Working({ t }: { t: Strings }) {
     setRefocus(false);
   }, [refocus]);
 
-  const add = () => {
+  const add = async () => {
     const text = next.trim();
     if (!text) return;
-    const prev = lines[lines.length - 1]!.text;
-    const result = check(prev, text);
-    setState(addLine(state, { text, result }));
+    const index = lines.length;
+    const prev = lines[index - 1]!.text;
+    setState(addLine(state, { text, checking: true }));
     setNext("");
+    // Checks run one after another, so a line entered while the one before
+    // it is still checked waits for it.
+    const result = await check(prev, text);
+    setState((s) => setResult(s, index, result));
     setAnnounce({ text, result });
   };
 
@@ -56,11 +61,12 @@ export function Working({ t }: { t: Strings }) {
   };
 
   const last = lines[lines.length - 1]?.result;
+  const checking = isChecking(state);
   return (
     <div className="working">
       <ol className="steps" aria-label={t.tabs.working}>
         {lines.map((l, i) => (
-          <StepRow key={i} n={i + 1} text={l.text} result={l.result} t={t} />
+          <StepRow key={i} n={i + 1} text={l.text} result={l.result} checking={l.checking} t={t} />
         ))}
       </ol>
       {lines.length === 1 && (
@@ -71,13 +77,13 @@ export function Working({ t }: { t: Strings }) {
       </div>
       <div className="actions">
         <Button onPress={add}>{t.nextLine}</Button>
-        <Button isDisabled={lines.length < 2} onPress={() => remove(removeLast)}>
+        <Button isDisabled={lines.length < 2 || checking} onPress={() => remove(removeLast)}>
           {t.removeLast}
         </Button>
-        <Button isDisabled={lines.length < 2} onPress={() => remove(startOver)}>
+        <Button isDisabled={lines.length < 2 || checking} onPress={() => remove(startOver)}>
           {t.startOver}
         </Button>
-        {last && <span className="muted">{t.checkedIn(last.ms.toFixed(2))}</span>}
+        {last && last.error?.kind !== "timeout" && <span className="muted">{t.checkedIn(last.ms.toFixed(2))}</span>}
       </div>
       {/* Always rendered, so each new notice is announced. */}
       <div role="status" className="notice">

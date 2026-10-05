@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useEffect, useState } from "react";
 import { StatusBadge } from "@valkyra-labs/stoa-react";
 import { check, solutions, type Check } from "./engine";
 import type { Strings } from "./i18n";
@@ -29,25 +29,30 @@ function answerLine(stated: string[]): string | null {
   return stated.map((a) => `x = ${a}`).join(" or ");
 }
 
+type Row = (typeof EXERCISES)[number] & { actual: string[]; ok: boolean; wrong: Check | null };
+
+async function audit(ex: (typeof EXERCISES)[number]): Promise<Row> {
+  const actual = await solutions(ex.equation);
+  const line = answerLine(ex.stated);
+  if (line === null) return { ...ex, actual, ok: JSON.stringify(ex.stated) === JSON.stringify(actual), wrong: null };
+  const c = await check(ex.equation, line);
+  return { ...ex, actual, ok: c.kind === "equivalent", wrong: c.kind === "equivalent" ? null : c };
+}
+
 export function Audit({ t }: { t: Strings }) {
-  const rows = useMemo(
-    () =>
-      EXERCISES.map((ex) => {
-        const actual = solutions(ex.equation);
-        const line = answerLine(ex.stated);
-        let ok: boolean;
-        let wrong: Check | null = null;
-        if (line === null) {
-          ok = JSON.stringify(ex.stated) === JSON.stringify(actual);
-        } else {
-          const c = check(ex.equation, line);
-          ok = c.kind === "equivalent";
-          if (!ok) wrong = c;
-        }
-        return { ...ex, actual, ok, wrong };
-      }),
-    [],
-  );
+  const [rows, setRows] = useState<Row[] | "failed" | null>(null);
+  useEffect(() => {
+    let live = true;
+    Promise.all(EXERCISES.map(audit)).then(
+      (done) => live && setRows(done),
+      () => live && setRows("failed"),
+    );
+    return () => {
+      live = false;
+    };
+  }, []);
+  if (rows === null) return <p className="muted">{t.checking}</p>;
+  if (rows === "failed") return <p className="muted">{t.auditFailed}</p>;
   // Solutions are maths, kept left to right; "no real solution" and "every
   // x" are words, which take the interface's direction.
   const answer = (v: string[]) =>

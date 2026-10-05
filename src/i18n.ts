@@ -1,7 +1,7 @@
 // Interface strings in English and Arabic, and the explanations of the
 // engine's verdicts, written here from its structured result in either
 // language rather than taken from its English sentence.
-import type { Check, EngineError, Found, ParseError } from "./engine";
+import type { Check, EngineError, Found, ParseError } from "./verdict";
 
 export type Lang = "en" | "ar";
 
@@ -86,6 +86,10 @@ function errorEn(e: EngineError): Rich {
       return ["the lines use different unknowns (", m(e.a), " and ", m(e.b), ")"];
     case "unknown":
       return [e.text];
+    case "timeout":
+      return [`checking took longer than ${e.limitMs / 1000} seconds, the time the checker allows`];
+    case "stopped":
+      return ["the checker stopped while checking this step"];
   }
 }
 
@@ -132,6 +136,10 @@ function explainEn(c: Check, subject: Subject): Rich {
 // Arabic: the same cases, in the terms of the interface (السطر، الحل،
 // المجال، الإجابة المعلنة). Lists of roots take the Arabic comma, and
 // clauses the Arabic semicolon.
+
+/** A number of seconds, the noun agreeing with it: ثانية واحدة، ثانيتين،
+ * 3 ثوانٍ (three to ten), 11 ثانية (eleven and up). */
+const secondsAr = (n: number) => (n === 1 ? "ثانية واحدة" : n === 2 ? "ثانيتين" : n <= 10 ? `${n} ثوانٍ` : `${n} ثانية`);
 
 /** "the solution(s)", agreeing with the count: one, two, three or more. */
 const solutionsAr = (n: number) => (n === 1 ? "الحل" : n === 2 ? "الحلّين" : "الحلول");
@@ -186,6 +194,10 @@ function errorAr(e: EngineError): Rich {
       // A message in a form this app cannot read is English, so it is not
       // shown; the badge already says the line could not be read.
       return ["تعذّرت قراءة السطر"];
+    case "timeout":
+      return [`استغرق التحقق أكثر من ${secondsAr(e.limitMs / 1000)}، وهي المدة التي يسمح بها المحرّك`];
+    case "stopped":
+      return ["توقّف المحرّك أثناء التحقق من هذه الخطوة"];
   }
 }
 
@@ -253,6 +265,7 @@ const en = {
   cannotRead: "Cannot read this line",
   start: "Start",
   checkedIn: (ms: string) => `checked in ${ms} ms`,
+  checking: "Checking…",
   explain: explainEn,
   /** A line of maths as shown, with the words between alternatives in this
    * language; the engine is given the line as written (see toEngine). */
@@ -281,6 +294,7 @@ const en = {
   auditSummary: (ok: number, n: number) => `${ok} of ${n} stated answers are correct`,
   answerOk: "Answer correct",
   answerWrong: "Answer wrong",
+  auditFailed: "The exercises could not be checked. Reload the page to try again.",
   loading: "Loading the engine…",
   loadFailed: "The engine could not be loaded. Check your connection and try again.",
   retry: "Try again",
@@ -312,6 +326,7 @@ const ar: typeof en = {
   cannotRead: "تعذّرت قراءة هذا السطر",
   start: "البداية",
   checkedIn: (ms: string) => `تم التحقق خلال ${ms} ملّي ثانية`,
+  checking: "جارٍ التحقق…",
   explain: explainAr,
   showLine: (line: string) => line.replace(/\s+or\s+/giu, " أو ").replace(/,\s*/gu, "، ").replace(/;\s*/gu, "؛ "),
   listSeparator: "، ",
@@ -337,6 +352,7 @@ const ar: typeof en = {
   auditSummary: (ok: number, n: number) => `${ok} من ${n} ${n >= 3 && n <= 10 ? "إجابات معلنة صحيحة" : "إجابة معلنة صحيحة"}`,
   answerOk: "الإجابة صحيحة",
   answerWrong: "الإجابة خاطئة",
+  auditFailed: "تعذّر التحقق من التمارين. أعد تحميل الصفحة لتحاول مجددًا.",
   loading: "جارٍ تحميل المحرّك…",
   loadFailed: "تعذّر تحميل المحرّك. تحقّق من اتصالك ثم أعد المحاولة.",
   retry: "أعد المحاولة",

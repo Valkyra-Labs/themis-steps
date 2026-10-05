@@ -1,152 +1,139 @@
-// The step checker (themis-algebra compiled to WebAssembly). Checks take
-// well under a millisecond, so they run on the UI thread.
-import init, { checkStep, solve } from "themis-algebra";
+// The step checker (themis-algebra compiled to WebAssembly) runs in a
+// worker (engine.worker.ts), one check at a time. A check that runs past
+// the time limit is stopped by ending the worker, and the step is reported
+// as not checked in time; the next check starts a new worker. So a line
+// that is slow to check never holds up the page, and a worker whose engine
+// failed is never used again.
+import type { Check } from "./verdict";
 
-let ready: Promise<void> | null = null;
+export type { Check } from "./verdict";
 
-/** Loads the engine once. A failed load is forgotten, so calling again
- * retries it. */
-export function loadEngine(): Promise<void> {
-  ready ??= init().then(
-    () => undefined,
-    (e: unknown) => {
-      ready = null;
-      throw e;
-    },
-  );
-  return ready;
-}
+/** The longest a check may take, in milliseconds. School algebra takes
+ * well under one. */
+export const CHECK_TIME_LIMIT_MS = 2000;
 
-/** What the engine found unexpected while reading a line. */
-export type Found =
-  | { kind: "symbol"; text: string }
-  | { kind: "endOfLine" }
-  | { kind: "number" }
-  /** A second `±` in one line. */
-  | { kind: "plusMinus" }
-  /** An alternative of an answer line that is not an equation. */
-  | { kind: "alternative"; text: string }
-  /** A token the engine names in a form this app does not know. */
-  | { kind: "token"; raw: string };
+/** What the worker is asked to do. */
+export type Job = { op: "load" } | { op: "check"; before: string; after: string } | { op: "solve"; line: string };
+export type Request = Job & { id: number };
+export type Reply = { id: number; ok: true; value: unknown } | { id: number; ok: false; error: string };
 
-export type ParseError =
-  | { kind: "empty" }
-  | { kind: "unexpected"; at: number; found: Found }
-  | { kind: "twoUnknowns"; a: string; b: string }
-  | { kind: "exponentNotInteger"; at: number }
-  | { kind: "exponentTooLarge"; at: number }
-  | { kind: "divisionByZero" }
-  | { kind: "tooManyEquals" };
-
-export type EngineError =
-  /** `line` counts the two lines of the check: 1 is the earlier one. */
-  | { kind: "parse"; line: number; error: ParseError }
-  | { kind: "kindMismatch" }
-  | { kind: "differentUnknowns"; a: string; b: string }
-  /** A message in a form this app does not know; kept as the engine wrote it. */
-  | { kind: "unknown"; text: string };
-
-export type Check = {
-  kind: "equivalent" | "changed" | "not_equal" | "error";
-  /** Roots as the engine writes them: "2", "1/2 + √5/2", or "≈ 1.324718". */
-  lost: string[];
-  gained: string[];
-  lostInfinitelyMany: boolean;
-  gainedInfinitelyMany: boolean;
-  domainWidenedAt: string[];
-  domainNarrowedAt: string[];
-  /** For "not_equal": an x where both are defined, and the two values there. */
-  witness: string;
-  before: string;
-  after: string;
-  /** For "error": what went wrong. */
-  error?: EngineError;
-  /** The engine's own English sentence; the interface writes its own
-   * from the fields above, in either language. */
-  explanation: string;
-  /** Time the engine took, in milliseconds. */
-  ms: number;
+/** The parts of a Worker the engine uses (a fake one in the tests). */
+export type WorkerLike = {
+  postMessage(r: Request): void;
+  terminate(): void;
+  addEventListener(type: "message", listener: (e: MessageEvent<Reply>) => void): void;
+  addEventListener(type: "error", listener: (e: ErrorEvent) => void): void;
 };
 
-// The engine reports an error only as text (its Rust error's Display), so
-// the error is read back from that text. Its tokens are written in their
-// Rust debug form ("Op('*')", "RParen"); each becomes the symbol typed.
-const TOKENS: Record<string, string> = { LParen: "(", RParen: ")", Eq: "=" };
-const SUPERSCRIPTS: Record<string, string> = { "2": "²", "3": "³" };
+/** A check that did not give a verdict. */
+const notChecked = (error: NonNullable<Check["error"]>, ms: number): Check => ({
+  kind: "error",
+  lost: [],
+  gained: [],
+  lostInfinitelyMany: false,
+  gainedInfinitelyMany: false,
+  domainWidenedAt: [],
+  domainNarrowedAt: [],
+  witness: "",
+  before: "",
+  after: "",
+  error,
+  explanation: "",
+  ms,
+});
 
-function readFound(s: string): Found {
-  if (s === "end of line") return { kind: "endOfLine" };
-  if (s === "'±' (write it once per line, as in x = ±3)") return { kind: "plusMinus" };
-  let m = /^'(.*)' \(each alternative must be an equation\)$/su.exec(s);
-  if (m) return { kind: "alternative", text: m[1]! };
-  m = /^'(.*)'$/su.exec(s) ?? /^(?:Op|Var)\('(.)'\)$/u.exec(s);
-  if (m) return { kind: "symbol", text: m[1]! };
-  if (TOKENS[s]) return { kind: "symbol", text: TOKENS[s] };
-  m = /^Sup\((\d+)\)$/.exec(s);
-  if (m) return { kind: "symbol", text: SUPERSCRIPTS[m[1]!] ?? `^${m[1]}` };
-  if (s.startsWith("Num(")) return { kind: "number" };
-  return { kind: "token", raw: s };
-}
+export function createEngine(spawn: () => WorkerLike, limitMs = CHECK_TIME_LIMIT_MS) {
+  let worker: WorkerLike | null = null;
+  let loading: Promise<void> | null = null;
+  let lastId = 0;
+  const waiting = new Map<number, (r: Reply) => void>();
+  // Each request waits for the one before it, so a time limit counts only
+  // the request's own check.
+  let queue: Promise<unknown> = Promise.resolve();
 
-function readParseError(s: string): ParseError | null {
-  if (s === "the line is empty") return { kind: "empty" };
-  if (s === "division by zero") return { kind: "divisionByZero" };
-  if (s === "more than one '='") return { kind: "tooManyEquals" };
-  let m = /^unexpected (.*) at position (\d+)$/su.exec(s);
-  if (m) return { kind: "unexpected", at: Number(m[2]), found: readFound(m[1]!) };
-  m = /^two unknowns \((.) and (.)\); one is supported$/u.exec(s);
-  if (m) return { kind: "twoUnknowns", a: m[1]!, b: m[2]! };
-  m = /^the exponent at position (\d+) must be a whole number$/.exec(s);
-  if (m) return { kind: "exponentNotInteger", at: Number(m[1]) };
-  m = /^the exponent at position (\d+) is too large$/.exec(s);
-  if (m) return { kind: "exponentTooLarge", at: Number(m[1]) };
-  return null;
-}
+  /** Ends the worker, and with it any check it is running. */
+  function drop(error: string) {
+    worker?.terminate();
+    worker = null;
+    loading = null;
+    for (const [id, settle] of waiting) settle({ id, ok: false, error });
+    waiting.clear();
+  }
 
-/** The engine's error message, read back into its parts. */
-export function readError(text: string): EngineError {
-  if (text === "one line is an equation and the other is an expression") return { kind: "kindMismatch" };
-  let m = /^the lines use different unknowns \((.) and (.)\)$/u.exec(text);
-  if (m) return { kind: "differentUnknowns", a: m[1]!, b: m[2]! };
-  m = /^line (\d+): (.*)$/su.exec(text);
-  const error = m && readParseError(m[2]!);
-  if (m && error) return { kind: "parse", line: Number(m[1]), error };
-  return { kind: "unknown", text };
-}
+  function send(w: WorkerLike, job: Job): Promise<Reply> {
+    const id = ++lastId;
+    return new Promise((resolve) => {
+      waiting.set(id, resolve);
+      w.postMessage({ ...job, id });
+    });
+  }
 
-/** The engine reads "or", "," and ";" between the alternatives of an
- * answer line; an Arabic learner writes "أو", "،" and "؛". */
-export function toEngine(line: string): string {
-  return line
-    .replace(/\s*أو\s*/gu, " or ")
-    .replace(/،/gu, ",")
-    .replace(/؛/gu, ";");
-}
+  /** Starts the worker and loads the engine in it, once. A failed load is
+   * forgotten, so calling again retries it in a new worker. */
+  function load(): Promise<void> {
+    loading ??= (async () => {
+      const w = spawn();
+      worker = w;
+      w.addEventListener("message", (e: MessageEvent<Reply>) => {
+        const settle = waiting.get(e.data.id);
+        waiting.delete(e.data.id);
+        settle?.(e.data);
+      });
+      // The worker's script could not be loaded, or it failed outside a request.
+      w.addEventListener("error", (e: ErrorEvent) => {
+        if (worker === w) drop(e.message || "The engine's worker failed.");
+      });
+      const r = await send(w, { op: "load" });
+      if (!r.ok) {
+        if (worker === w) drop(r.error);
+        throw new Error(r.error);
+      }
+    })();
+    return loading;
+  }
 
-export function check(before: string, after: string): Check {
-  const t = performance.now();
-  const r = checkStep(toEngine(before), toEngine(after));
-  const out: Check = {
-    kind: r.kind as Check["kind"],
-    lost: r.lost,
-    gained: r.gained,
-    lostInfinitelyMany: r.lostInfinitelyMany,
-    gainedInfinitelyMany: r.gainedInfinitelyMany,
-    domainWidenedAt: r.domainWidenedAt,
-    domainNarrowedAt: r.domainNarrowedAt,
-    witness: r.witness,
-    before: r.before,
-    after: r.after,
-    explanation: r.explanation,
-    ms: 0,
+  /** Runs one request after the ones before it: the reply's value, or the
+   * error ("timeout" past the limit), after which the worker is replaced. */
+  function run(job: Job): Promise<{ ok: true; value: unknown } | { ok: false; error: string }> {
+    const task = queue.then(async () => {
+      try {
+        await load();
+      } catch (e) {
+        return { ok: false as const, error: String(e) };
+      }
+      const w = worker!;
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      const timedOut = new Promise<Reply>((resolve) => {
+        timer = setTimeout(() => resolve({ id: 0, ok: false, error: "timeout" }), limitMs);
+      });
+      const reply = await Promise.race([send(w, job), timedOut]);
+      clearTimeout(timer);
+      if (!reply.ok && worker === w) drop(reply.error);
+      return reply;
+    });
+    queue = task;
+    return task;
+  }
+
+  return {
+    load,
+    async check(before: string, after: string): Promise<Check> {
+      const reply = await run({ op: "check", before, after });
+      if (reply.ok) return reply.value as Check;
+      return reply.error === "timeout" ? notChecked({ kind: "timeout", limitMs }, limitMs) : notChecked({ kind: "stopped" }, 0);
+    },
+    /** Real solutions as text; ["*"] for every x of the domain. Rejects
+     * when the line could not be solved. */
+    async solutions(line: string): Promise<string[]> {
+      const reply = await run({ op: "solve", line });
+      if (reply.ok) return reply.value as string[];
+      throw new Error(reply.error);
+    },
   };
-  r.free();
-  if (out.kind === "error") out.error = readError(out.explanation);
-  out.ms = performance.now() - t;
-  return out;
 }
 
-/** Real solutions as text; ["*"] for every x of the domain. */
-export function solutions(line: string): string[] {
-  return solve(toEngine(line));
-}
+const engine = createEngine(() => new Worker(new URL("./engine.worker.ts", import.meta.url), { type: "module" }));
+
+export const loadEngine = engine.load;
+export const check = engine.check;
+export const solutions = engine.solutions;

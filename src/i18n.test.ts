@@ -2,7 +2,8 @@ import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { initSync } from "themis-algebra";
 import { beforeAll, describe, expect, it } from "vitest";
-import { check, readError, toEngine, type Check } from "./engine";
+import { readError, toEngine, type Check } from "./verdict";
+import { checkNow as check } from "./wasmCheck";
 import { plain, strings, type Rich } from "./i18n";
 
 // The real engine, loaded from its WebAssembly file.

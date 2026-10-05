@@ -66,6 +66,32 @@ test("removing lines can be undone until the next edit", async ({ page }) => {
   await expect(notice).toBeEmpty();
 });
 
+test("a line slow to check is stopped at the time limit, and the page answers meanwhile", async ({ page }) => {
+  await page.goto("/");
+  const next = page.getByLabel("Next line");
+  // Within the engine's limits, but seconds of work: a degree-32
+  // polynomial with nine-digit coefficients.
+  await next.fill("(123456789x^2 + 987654321x - 1)^16 + x = 0");
+  const started = Date.now();
+  await next.press("Enter");
+  const steps = page.locator(".working .step");
+  await expect(steps.nth(1)).toContainText("Checking…");
+  // The check runs in a worker, so the page goes on answering.
+  const examples = page.getByRole("tab", { name: "Worked examples" });
+  await examples.click({ timeout: 1000 });
+  await expect(examples).toHaveAttribute("aria-selected", "true", { timeout: 1000 });
+  await page.getByRole("tab", { name: "Check your working" }).click({ timeout: 1000 });
+  await expect(steps.nth(1)).toContainText("took longer than 2 seconds", { timeout: 6000 });
+  // Two seconds and the time to report it, with room for a loaded machine.
+  expect(Date.now() - started).toBeLessThan(4500);
+  // The next line is checked as usual, in a new worker.
+  await next.fill("x^2 = 4");
+  await next.press("Enter");
+  await next.fill("x = 2");
+  await next.press("Enter");
+  await expect(steps.nth(3)).toContainText("This step loses x = -2.");
+});
+
 test("the working survives a visit to another tab", async ({ page }) => {
   await page.goto("/");
   const next = page.getByLabel("Next line");

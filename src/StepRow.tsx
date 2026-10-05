@@ -1,5 +1,5 @@
 import { StatusBadge } from "@valkyra-labs/stoa-react";
-import type { Check } from "./engine";
+import type { Check } from "./verdict";
 import type { Strings } from "./i18n";
 import { pretty } from "./pretty";
 import { RichText } from "./RichText";
@@ -7,8 +7,10 @@ import { RichText } from "./RichText";
 /** One line of working with its verdict. Maths is always left to right,
  * isolated from the page direction; the explanation is in the interface's
  * language, with its maths isolated the same way. */
-export function StepRow({ n, text, result, t }: { n: number; text: string; result?: Check; t: Strings }) {
-  const badge = !result ? (
+export function StepRow({ n, text, result, checking = false, t }: { n: number; text: string; result?: Check; checking?: boolean; t: Strings }) {
+  const badge = checking ? (
+    <StatusBadge tone="neutral">{t.checking}</StatusBadge>
+  ) : !result ? (
     <StatusBadge tone="neutral">{t.start}</StatusBadge>
   ) : result.kind === "equivalent" ? (
     <StatusBadge tone="positive">{t.correct}</StatusBadge>
