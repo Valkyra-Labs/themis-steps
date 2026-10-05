@@ -24,6 +24,9 @@ export function checkNow(before: string, after: string): Check {
   };
   r.free();
   if (out.kind === "error") out.error = readError(out.explanation);
+  // The engine reads a line with "=" as an equation (an answer line's
+  // alternatives too), and says only that the kinds differ.
+  if (out.error?.kind === "kindMismatch") out.error.firstIsEquation = toEngine(before).includes("=");
   out.ms = performance.now() - t;
   return out;
 }

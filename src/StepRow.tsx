@@ -31,7 +31,7 @@ export function StepRow({ n, text, result, checking = false, t }: { n: number; t
       {/* A correct step is explained only when it widens the domain. */}
       {result && (result.kind !== "equivalent" || result.domainWidenedAt.length > 0) && (
         <p className="step__why">
-          <RichText value={t.explain(result, "step")} />
+          <RichText value={t.explain(result, { line: n })} />
         </p>
       )}
     </li>

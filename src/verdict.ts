@@ -25,7 +25,9 @@ export type ParseError =
 export type EngineError =
   /** `line` counts the two lines of the check: 1 is the earlier one. */
   | { kind: "parse"; line: number; error: ParseError }
-  | { kind: "kindMismatch" }
+  /** One line is an equation and the other an expression; which one is
+   * set where the two lines are known (wasmCheck.ts). */
+  | { kind: "kindMismatch"; firstIsEquation: boolean }
   | { kind: "differentUnknowns"; a: string; b: string }
   /** A message in a form this app does not know; kept as the engine wrote it. */
   | { kind: "unknown"; text: string }
@@ -93,7 +95,7 @@ function readParseError(s: string): ParseError | null {
 
 /** The engine's error message, read back into its parts. */
 export function readError(text: string): EngineError {
-  if (text === "one line is an equation and the other is an expression") return { kind: "kindMismatch" };
+  if (text === "one line is an equation and the other is an expression") return { kind: "kindMismatch", firstIsEquation: false };
   let m = /^the lines use different unknowns \((.) and (.)\)$/u.exec(text);
   if (m) return { kind: "differentUnknowns", a: m[1]!, b: m[2]! };
   m = /^line (\d+): (.*)$/su.exec(text);

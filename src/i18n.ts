@@ -10,9 +10,14 @@ export type Lang = "en" | "ar";
 export type Part = string | { math: string };
 export type Rich = Part[];
 
-/** What an explanation describes: a step of working, or an exercise's
+/** What an explanation describes: the step of working that ends on the
+ * line numbered `line` on screen (from line - 1 to it), or an exercise's
  * stated answer checked against its equation. */
-export type Subject = "step" | "answer";
+export type Where = { line: number } | "answer";
+
+/** The engine numbers the two lines it compares 1 and 2; the number shown
+ * for one of them. */
+const shown = (where: { line: number }, pair: number) => where.line - 2 + pair;
 
 /** Maths inside a plain string (a field hint cannot hold elements): the
  * Unicode left-to-right isolate, the plain-text form of <bdi dir="ltr">,
@@ -76,25 +81,43 @@ function parseErrorEn(e: ParseError): Part[] {
   }
 }
 
-function errorEn(e: EngineError): Rich {
+function errorEn(e: EngineError, where: Where): Rich {
+  const kind = (equation: boolean) => (equation ? "an equation" : "an expression");
+  if (where === "answer")
+    switch (e.kind) {
+      case "parse":
+        return [e.line === 1 ? "The equation: " : "The stated answer: ", ...parseErrorEn(e.error), "."];
+      case "kindMismatch":
+        return ["One is an equation and the other an expression, so the two cannot be compared."];
+      case "differentUnknowns":
+        return ["The equation uses ", m(e.a), " and the stated answer uses ", m(e.b), "."];
+      case "unknown":
+        return [e.text];
+      case "timeout":
+        return [`Checking the stated answer took longer than ${e.limitMs / 1000} seconds, the time the engine allows.`];
+      case "stopped":
+        return ["The engine stopped while checking the stated answer."];
+    }
+  const [a, b] = [shown(where, 1), shown(where, 2)];
   switch (e.kind) {
     case "parse":
-      return [`line ${e.line}: `, ...parseErrorEn(e.error)];
+      return [`Line ${shown(where, e.line)}: `, ...parseErrorEn(e.error), "."];
     case "kindMismatch":
-      return ["one line is an equation and the other is an expression"];
+      return [`Line ${a} is ${kind(e.firstIsEquation)} and line ${b} is ${kind(!e.firstIsEquation)}, so the two cannot be compared.`];
     case "differentUnknowns":
-      return ["the lines use different unknowns (", m(e.a), " and ", m(e.b), ")"];
+      return [`Line ${a} uses `, m(e.a), ` and line ${b} uses `, m(e.b), "; write both with the same unknown."];
     case "unknown":
       return [e.text];
     case "timeout":
-      return [`checking took longer than ${e.limitMs / 1000} seconds, the time the checker allows`];
+      return [`Checking line ${b} against line ${a} took longer than ${e.limitMs / 1000} seconds, the time the engine allows.`];
     case "stopped":
-      return ["the checker stopped while checking this step"];
+      return [`The engine stopped while checking line ${b} against line ${a}.`];
   }
 }
 
-function explainEn(c: Check, subject: Subject): Rich {
-  if (c.kind === "error") return errorEn(c.error ?? { kind: "unknown", text: c.explanation });
+function explainEn(c: Check, where: Where): Rich {
+  if (c.kind === "error") return errorEn(c.error ?? { kind: "unknown", text: c.explanation }, where);
+  const subject = where === "answer" ? "answer" : "step";
   const out: Part[] = [];
   if (c.kind === "equivalent") out.push("Correct: the step keeps the same solutions.");
   else if (c.kind === "not_equal")
@@ -182,27 +205,42 @@ function parseErrorAr(e: ParseError): Part[] {
   }
 }
 
-function errorAr(e: EngineError): Rich {
+function errorAr(e: EngineError, where: Where): Rich {
+  const kind = (equation: boolean) => (equation ? "معادلة" : "عبارة");
+  // A message in a form this app cannot read is English, so it is not
+  // shown; the badge already says the step was not checked.
+  if (e.kind === "unknown") return ["تعذّر التحقق من هذه الخطوة."];
+  if (where === "answer")
+    switch (e.kind) {
+      case "parse":
+        return [e.line === 1 ? "المعادلة: " : "الإجابة المعلنة: ", ...parseErrorAr(e.error), "."];
+      case "kindMismatch":
+        return ["أحدهما معادلة والآخر عبارة، فلا يمكن المقارنة بينهما."];
+      case "differentUnknowns":
+        return ["تستخدم المعادلة المجهول ", m(e.a), " والإجابة المعلنة المجهول ", m(e.b), "."];
+      case "timeout":
+        return [`استغرق التحقق من الإجابة المعلنة أكثر من ${secondsAr(e.limitMs / 1000)}، وهي المدة التي يسمح بها المحرّك.`];
+      case "stopped":
+        return ["توقّف المحرّك أثناء التحقق من الإجابة المعلنة."];
+    }
+  const [a, b] = [shown(where, 1), shown(where, 2)];
   switch (e.kind) {
     case "parse":
-      return [`السطر ${e.line}: `, ...parseErrorAr(e.error)];
+      return [`السطر ${shown(where, e.line)}: `, ...parseErrorAr(e.error), "."];
     case "kindMismatch":
-      return ["أحد السطرين معادلة والآخر عبارة"];
+      return [`السطر ${a} ${kind(e.firstIsEquation)} والسطر ${b} ${kind(!e.firstIsEquation)}، فلا يمكن المقارنة بينهما.`];
     case "differentUnknowns":
-      return ["يستخدم السطران مجهولين مختلفين (", m(e.a), " و", m(e.b), ")"];
-    case "unknown":
-      // A message in a form this app cannot read is English, so it is not
-      // shown; the badge already says the line could not be read.
-      return ["تعذّرت قراءة السطر"];
+      return [`يستخدم السطر ${a} المجهول `, m(e.a), ` والسطر ${b} المجهول `, m(e.b), "؛ اكتب السطرين بالمجهول نفسه."];
     case "timeout":
-      return [`استغرق التحقق أكثر من ${secondsAr(e.limitMs / 1000)}، وهي المدة التي يسمح بها المحرّك`];
+      return [`استغرق التحقق من السطر ${b} مقارنةً بالسطر ${a} أكثر من ${secondsAr(e.limitMs / 1000)}، وهي المدة التي يسمح بها المحرّك.`];
     case "stopped":
-      return ["توقّف المحرّك أثناء التحقق من هذه الخطوة"];
+      return [`توقّف المحرّك أثناء التحقق من السطر ${b} مقارنةً بالسطر ${a}.`];
   }
 }
 
-function explainAr(c: Check, subject: Subject): Rich {
-  if (c.kind === "error") return errorAr(c.error ?? { kind: "unknown", text: c.explanation });
+function explainAr(c: Check, where: Where): Rich {
+  if (c.kind === "error") return errorAr(c.error ?? { kind: "unknown", text: c.explanation }, where);
+  const subject = where === "answer" ? "answer" : "step";
   const out: Part[] = [];
   if (c.kind === "equivalent") out.push("صحيح: تحافظ الخطوة على الحلول نفسها.");
   else if (c.kind === "not_equal")

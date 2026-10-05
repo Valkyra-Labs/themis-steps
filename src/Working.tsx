@@ -27,7 +27,7 @@ export function Working({ t }: { t: Strings }) {
   const [next, setNext] = useState("");
   // The last line checked, announced with its verdict in the current
   // language (so a change of language does not leave the other one behind).
-  const [announce, setAnnounce] = useState<{ text: string; result: Check } | null>(null);
+  const [announce, setAnnounce] = useState<{ text: string; line: number; result: Check } | null>(null);
   const nextField = useRef<HTMLDivElement>(null);
   // Set when the control that had focus goes away (a button that becomes
   // disabled, or Undo once used); focus then moves to the next-line field.
@@ -51,7 +51,7 @@ export function Working({ t }: { t: Strings }) {
     // it is still checked waits for it.
     const result = await check(prev, text);
     setState((s) => setResult(s, index, result));
-    setAnnounce({ text, result });
+    setAnnounce({ text, line: index + 1, result });
   };
 
   const remove = (action: (s: WorkingState) => WorkingState) => {
@@ -103,7 +103,7 @@ export function Working({ t }: { t: Strings }) {
       <p className="stoa-visually-hidden" aria-live="polite">
         {announce && (
           <>
-            <bdi dir="ltr">{pretty(t.showLine(announce.text))}</bdi>: <RichText value={t.explain(announce.result, "step")} />
+            <bdi dir="ltr">{pretty(t.showLine(announce.text))}</bdi>: <RichText value={t.explain(announce.result, { line: announce.line })} />
           </>
         )}
       </p>

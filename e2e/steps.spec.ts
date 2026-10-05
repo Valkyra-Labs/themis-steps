@@ -92,6 +92,21 @@ test("a line slow to check is stopped at the time limit, and the page answers me
   await expect(steps.nth(3)).toContainText("This step loses x = -2.");
 });
 
+test("a message about a line names it by its number on screen", async ({ page }) => {
+  await page.goto("/");
+  const next = page.getByLabel("Next line");
+  for (const line of ["(x - 2)(x - 3) = 0", "x = 2 or x = 3", "x = 2 or x = 3", "x = = 3", "x = 3"]) {
+    await next.fill(line);
+    await next.press("Enter");
+  }
+  const steps = page.locator(".working .step");
+  await expect(steps).toHaveCount(6);
+  await expect(steps.nth(4).locator(".step__n")).toHaveText("5");
+  await expect(steps.nth(4)).toContainText("Line 5: more than one '='.");
+  await expect(steps.nth(5)).toContainText("Line 5: more than one '='.");
+  await expect(page.locator('[aria-live="polite"]').last()).toHaveText("x = 3: Line 5: more than one '='.");
+});
+
 test("the working survives a visit to another tab", async ({ page }) => {
   await page.goto("/");
   const next = page.getByLabel("Next line");
@@ -181,7 +196,7 @@ test("the Arabic interface explains each verdict in Arabic, with maths left to r
   await expect(live).not.toHaveAttribute("lang");
   await next.fill("x = 2 $");
   await next.press("Enter");
-  await expect(why.last()).toHaveText("السطر 2: لم يُتوقَّع «$» في الموضع 7");
+  await expect(why.last()).toHaveText("السطر 3: لم يُتوقَّع «$» في الموضع 7.");
   await page.getByRole("tab", { name: "تدقيق التمارين" }).click();
   await expect(page.getByText("تفقد الإجابة المعلنة الحل x = -4.")).toBeVisible();
   await expect(page.getByText("تضيف الإجابة المعلنة الحل x = 2، وهو ليس حلًّا للمعادلة.")).toBeVisible();
