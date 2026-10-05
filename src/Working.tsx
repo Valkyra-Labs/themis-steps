@@ -64,10 +64,10 @@ export function Working({ t }: { t: Strings }) {
         ))}
       </ol>
       {lines.length === 1 && (
-        <TextField label={t.problem} value={lines[0]!.text} onChange={(v) => setState(setProblem(state, v))} dir="ltr" />
+        <TextField label={t.problem} value={lines[0]!.text} onChange={(v) => setState(setProblem(state, v))} dir="ltr" mono />
       )}
       <div ref={nextField}>
-        <TextField label={t.nextLine} value={next} onChange={setNext} onEnter={add} description={t.nextHint} dir="ltr" autoFocus />
+        <TextField label={t.nextLine} value={next} onChange={setNext} onEnter={add} description={t.nextHint} dir="ltr" mono autoFocus />
       </div>
       <div className="actions">
         <Button onPress={add}>{t.nextLine}</Button>
