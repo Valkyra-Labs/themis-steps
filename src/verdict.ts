@@ -112,3 +112,29 @@ export function toEngine(line: string): string {
     .replace(/،/gu, ",")
     .replace(/؛/gu, ";");
 }
+
+/** What a line's badge says. "cannotRead" only for a line the engine
+ * could not read; a step it could not check for another reason says why
+ * not. */
+export type Badge = "start" | "correct" | "wrong" | "notEqual" | "cannotRead" | "cannotCompare" | "tooComplex" | "notChecked";
+
+/** The badge of the line a step ends on, or of the first line (no result). */
+export function badgeOf(result: Check | undefined): Badge {
+  if (!result) return "start";
+  if (result.kind === "equivalent") return "correct";
+  if (result.kind === "changed") return "wrong";
+  if (result.kind === "not_equal") return "notEqual";
+  const e = result.error;
+  switch (e?.kind) {
+    case "parse":
+      // Line 2 of the pair is this one; line 1 is the one before it.
+      return e.line === 2 ? "cannotRead" : "notChecked";
+    case "kindMismatch":
+    case "differentUnknowns":
+      return "cannotCompare";
+    case "timeout":
+      return "tooComplex";
+    default:
+      return "notChecked";
+  }
+}

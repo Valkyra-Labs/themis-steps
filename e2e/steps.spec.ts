@@ -82,6 +82,7 @@ test("a line slow to check is stopped at the time limit, and the page answers me
   await expect(examples).toHaveAttribute("aria-selected", "true", { timeout: 1000 });
   await page.getByRole("tab", { name: "Check your working" }).click({ timeout: 1000 });
   await expect(steps.nth(1)).toContainText("took longer than 2 seconds", { timeout: 6000 });
+  await expect(steps.nth(1)).toContainText("Too complex to check");
   // Two seconds and the time to report it, with room for a loaded machine.
   expect(Date.now() - started).toBeLessThan(4500);
   // The next line is checked as usual, in a new worker.
@@ -104,6 +105,10 @@ test("a message about a line names it by its number on screen", async ({ page })
   await expect(steps.nth(4).locator(".step__n")).toHaveText("5");
   await expect(steps.nth(4)).toContainText("Line 5: more than one '='.");
   await expect(steps.nth(5)).toContainText("Line 5: more than one '='.");
+  // Line 5 could not be read; line 6 was, and its step is not checked.
+  await expect(steps.nth(4)).toContainText("Cannot read this line");
+  await expect(steps.nth(5)).toContainText("Not checked");
+  await expect(steps.nth(5)).not.toContainText("Cannot read");
   await expect(page.locator('[aria-live="polite"]').last()).toHaveText("x = 3: Line 5: more than one '='.");
 });
 
