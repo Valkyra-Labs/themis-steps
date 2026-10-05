@@ -219,6 +219,27 @@ test("an Arabic page is right to left before the app draws anything", async ({ p
   await expect(page.locator("html")).toHaveAttribute("lang", "ar");
 });
 
+test("the Arabic face is preloaded on an Arabic page only", async ({ page }) => {
+  const preloads = () => page.evaluate(() => [...document.querySelectorAll<HTMLLinkElement>('link[rel="preload"][as="font"]')].map((l) => l.href));
+  await page.goto("/?lang=ar");
+  await expect(page.getByRole("tab").first()).toBeVisible();
+  const ar = await preloads();
+  expect(ar).toHaveLength(1);
+  expect(ar[0]).toMatch(/ibm-plex-sans-arabic-arabic-400-normal.*\.woff2/);
+  // The face the page draws Arabic in, so the preload is used, not fetched twice.
+  const used = await page.evaluate(async () => {
+    await document.fonts.ready;
+    return performance
+      .getEntriesByType("resource")
+      .filter((e) => /ibm-plex-sans-arabic-arabic-400-normal[^/?]*\.woff2$/.test(e.name))
+      .map((e) => e.name);
+  });
+  expect(used).toEqual(ar);
+  await page.goto("/?lang=en");
+  await expect(page.getByRole("tab").first()).toBeVisible();
+  expect(await preloads()).toEqual([]);
+});
+
 test("the chosen language survives a reload", async ({ page }) => {
   await page.goto("/?from=link");
   await expect(page.getByRole("radiogroup", { name: "Language" })).toBeVisible();
