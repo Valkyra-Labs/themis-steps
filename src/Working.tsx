@@ -28,7 +28,7 @@ export function Working({ t }: { t: Strings }) {
   // The last line checked, announced with its verdict in the current
   // language (so a change of language does not leave the other one behind).
   const [announce, setAnnounce] = useState<{ text: string; line: number; result: Check } | null>(null);
-  const nextField = useRef<HTMLDivElement>(null);
+  const nextField = useRef<HTMLInputElement>(null);
   // Set when the control that had focus goes away (a button that becomes
   // disabled, or Undo once used); focus then moves to the next-line field.
   const [refocus, setRefocus] = useState(false);
@@ -36,7 +36,7 @@ export function Working({ t }: { t: Strings }) {
 
   useEffect(() => {
     if (!refocus) return;
-    nextField.current?.querySelector("input")?.focus();
+    nextField.current?.focus();
     setRefocus(false);
   }, [refocus]);
 
@@ -72,9 +72,7 @@ export function Working({ t }: { t: Strings }) {
       {lines.length === 1 && (
         <TextField label={t.problem} value={lines[0]!.text} onChange={(v) => setState(setProblem(state, v))} dir="ltr" mono />
       )}
-      <div ref={nextField}>
-        <TextField label={t.nextLine} value={next} onChange={setNext} onEnter={add} description={t.nextHint} dir="ltr" mono autoFocus />
-      </div>
+      <TextField ref={nextField} label={t.nextLine} value={next} onChange={setNext} onEnter={add} description={t.nextHint} dir="ltr" mono autoFocus />
       <div className="actions">
         <Button onPress={add}>{t.nextLine}</Button>
         <Button isDisabled={lines.length < 2 || checking} onPress={() => remove(removeLast)}>
