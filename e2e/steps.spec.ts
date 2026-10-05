@@ -93,6 +93,42 @@ test("a line slow to check is stopped at the time limit, and the page answers me
   await expect(steps.nth(3)).toContainText("This step loses x = -2.");
 });
 
+test("hostile lines are answered within the time limit, each with the limit it is over", async ({ page }) => {
+  await page.goto("/");
+  const next = page.getByLabel("Next line");
+  const steps = page.locator(".working .step");
+  const cases: [string, string, string][] = [
+    // 2,000 nested brackets used to break the engine until the page was reloaded.
+    [`${"(".repeat(2000)}x${")".repeat(2000)} = 1`, "Cannot read this line", "Line 2: longer than 500 characters, the most the engine reads in a line."],
+    [`${"(".repeat(200)}x${")".repeat(200)} = 1`, "Cannot read this line", "Line 2: brackets and signs nested more than 64 deep, the most the engine reads."],
+    [`${"-".repeat(400)}x = 1`, "Cannot read this line", "nested more than 64 deep"],
+    ["x^99999999999999999999 = 1", "Cannot read this line", "Line 2: the exponent at position 3 is too large."],
+    ["((x+1)^64)^64 = 0", "Too complex to check", "Line 2: too complex to check: it needs a degree above 64"],
+    [`x = ${"1 + ".repeat(2500)}1`, "Cannot read this line", "longer than 500 characters"],
+    [Array.from({ length: 60 }, (_, k) => `x=${k}`).join(" or "), "Cannot read this line", "Line 2: more than 12 alternatives"],
+    // Short lines with huge coefficients: 42 seconds of work before.
+    ["735134400x^2 + x + 735134400 = 0", "Changes the solutions", "This step loses x = 2, x = 3."],
+    ["963761198400x^2 + x + 963761198400 = 0", "Changes the solutions", "This step loses x = 2, x = 3."],
+  ];
+  for (const [line, badge, why] of cases) {
+    await next.fill(line);
+    const started = Date.now();
+    await next.press("Enter");
+    const row = steps.nth(1);
+    await expect(row.locator(".step__badge")).not.toHaveText("Checking…");
+    // The engine answered itself, well before the time limit would stop it.
+    expect(Date.now() - started, line.slice(0, 40)).toBeLessThan(2000);
+    await expect(row.locator(".step__badge")).toHaveText(new RegExp(badge));
+    await expect(row.locator(".step__why")).toContainText(why);
+    await page.getByRole("button", { name: "Remove last line" }).click();
+    await expect(steps).toHaveCount(1);
+  }
+  // The engine still checks lines as before.
+  await next.fill("(x - 2)(x - 3) = 0");
+  await next.press("Enter");
+  await expect(steps.nth(1)).toContainText("Correct");
+});
+
 test("a message about a line names it by its number on screen", async ({ page }) => {
   await page.goto("/");
   const next = page.getByLabel("Next line");

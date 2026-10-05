@@ -78,6 +78,14 @@ function parseErrorEn(e: ParseError): Part[] {
       return ["division by zero"];
     case "tooManyEquals":
       return ["more than one '", m("="), "'"];
+    case "tooLong":
+      return [`longer than ${e.max} characters, the most the engine reads in a line`];
+    case "tooDeep":
+      return [`brackets and signs nested more than ${e.max} deep, the most the engine reads`];
+    case "tooComplex":
+      return [`too complex to check: it needs a degree above ${e.max}, the highest the engine works with`];
+    case "tooManyAlternatives":
+      return [`more than ${e.max} alternatives, the most the engine reads in an answer line`];
   }
 }
 
@@ -202,6 +210,17 @@ function parseErrorAr(e: ParseError): Part[] {
       return ["قسمة على صفر"];
     case "tooManyEquals":
       return ["أكثر من علامة «", m("="), "» واحدة"];
+    // The counted nouns agree with the engine's limits as they are: 500
+    // (a hundred: singular genitive), 64 and 12 (eleven to ninety-nine:
+    // singular accusative).
+    case "tooLong":
+      return [`أطول من ${e.max} حرف، وهو أقصى ما يقرؤه المحرّك في السطر`];
+    case "tooDeep":
+      return [`أقواس وإشارات متداخلة أكثر من ${e.max} مستوًى، وهو أقصى ما يقرؤه المحرّك`];
+    case "tooComplex":
+      return [`أعقد من أن يُتحقَّق منه: يتطلب درجةً أعلى من ${e.max}، وهي أعلى درجة يعمل بها المحرّك`];
+    case "tooManyAlternatives":
+      return [`أكثر من ${e.max} بديلًا، وهو أقصى ما يقرؤه المحرّك في سطر إجابة`];
   }
 }
 

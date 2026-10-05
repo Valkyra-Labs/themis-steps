@@ -20,7 +20,16 @@ export type ParseError =
   | { kind: "exponentNotInteger"; at: number }
   | { kind: "exponentTooLarge"; at: number }
   | { kind: "divisionByZero" }
-  | { kind: "tooManyEquals" };
+  | { kind: "tooManyEquals" }
+  // The engine's limits on what one line may ask for; `max` is the limit.
+  /** Longer than the engine reads; not read at all. */
+  | { kind: "tooLong"; max: number }
+  /** Brackets and signs nested deeper than the engine reads. */
+  | { kind: "tooDeep"; max: number }
+  /** A polynomial of a degree above the highest the engine works with. */
+  | { kind: "tooComplex"; max: number }
+  /** More alternatives than the engine reads in an answer line. */
+  | { kind: "tooManyAlternatives"; max: number };
 
 export type EngineError =
   /** `line` counts the two lines of the check: 1 is the earlier one. */
@@ -82,6 +91,14 @@ function readParseError(s: string): ParseError | null {
   if (s === "the line is empty") return { kind: "empty" };
   if (s === "division by zero") return { kind: "divisionByZero" };
   if (s === "more than one '='") return { kind: "tooManyEquals" };
+  let limit = /^the line is longer than (\d+) characters$/.exec(s);
+  if (limit) return { kind: "tooLong", max: Number(limit[1]) };
+  limit = /^brackets and signs are nested more than (\d+) deep$/.exec(s);
+  if (limit) return { kind: "tooDeep", max: Number(limit[1]) };
+  limit = /^the line is too complex to check: its degree is above (\d+)$/.exec(s);
+  if (limit) return { kind: "tooComplex", max: Number(limit[1]) };
+  limit = /^more than (\d+) alternatives$/.exec(s);
+  if (limit) return { kind: "tooManyAlternatives", max: Number(limit[1]) };
   let m = /^unexpected (.*) at position (\d+)$/su.exec(s);
   if (m) return { kind: "unexpected", at: Number(m[2]), found: readFound(m[1]!) };
   m = /^two unknowns \((.) and (.)\); one is supported$/u.exec(s);
@@ -127,6 +144,8 @@ export function badgeOf(result: Check | undefined): Badge {
   const e = result.error;
   switch (e?.kind) {
     case "parse":
+      // Read, but asking for more work than the engine does.
+      if (e.error.kind === "tooComplex") return "tooComplex";
       // Line 2 of the pair is this one; line 1 is the one before it.
       return e.line === 2 ? "cannotRead" : "notChecked";
     case "kindMismatch":

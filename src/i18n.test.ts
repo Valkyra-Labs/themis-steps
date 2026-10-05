@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { initSync } from "themis-algebra";
 import { beforeAll, describe, expect, it } from "vitest";
-import { readError, toEngine, type Check } from "./verdict";
+import { badgeOf, readError, toEngine, type Check } from "./verdict";
 import { checkNow as check } from "./wasmCheck";
 import { plain, strings, type Rich } from "./i18n";
 
@@ -73,6 +73,10 @@ const CASES: [string, string][] = [
   ["x = 1", "x = 2 = 3"], // more than one =
   ["x = 1", "x + 1"], // equation and expression
   ["x = 1", "y = 1"], // different unknowns
+  ["x = 1", "1".repeat(501)], // longer than the engine reads
+  ["x = 1", `${"-".repeat(65)}x = 1`], // nested deeper than it reads
+  ["x = 1", "((x + 1)^64)^64 = 0"], // a degree above its highest
+  ["x = 1", Array.from({ length: 13 }, (_, k) => `x = ${k}`).join(" or ")], // more alternatives than it reads
 ];
 
 // Tokens the engine names in Rust's debug form; shown as the symbol.
@@ -90,7 +94,9 @@ describe("explanations", () => {
     for (const [a, b] of CASES) {
       const c = step(a, b);
       const english = plain(strings.en.explain(c, { line: 2 }));
-      if (c.error?.kind === "parse") expect(english, `${a} -> ${b}`).toBe(`L${c.explanation.slice(1)}.`);
+      // The limits are stated in the app's own words (tested below).
+      const limit = c.error?.kind === "parse" && ["tooLong", "tooDeep", "tooComplex", "tooManyAlternatives"].includes(c.error.error.kind);
+      if (c.error?.kind === "parse" && !limit) expect(english, `${a} -> ${b}`).toBe(`L${c.explanation.slice(1)}.`);
       else if (!c.error) expect(english, `${a} -> ${b}`).toBe(c.explanation);
     }
   });
@@ -116,7 +122,19 @@ describe("explanations", () => {
     expect(new Set(errors.map((e) => e.kind))).toEqual(new Set(["parse", "kindMismatch", "differentUnknowns"]));
     const parse = errors.flatMap((e) => (e.kind === "parse" ? [e.error] : []));
     expect(new Set(parse.map((e) => e.kind))).toEqual(
-      new Set(["empty", "unexpected", "twoUnknowns", "exponentNotInteger", "exponentTooLarge", "divisionByZero", "tooManyEquals"]),
+      new Set([
+        "empty",
+        "unexpected",
+        "twoUnknowns",
+        "exponentNotInteger",
+        "exponentTooLarge",
+        "divisionByZero",
+        "tooManyEquals",
+        "tooLong",
+        "tooDeep",
+        "tooComplex",
+        "tooManyAlternatives",
+      ]),
     );
     const found = parse.flatMap((e) => (e.kind === "unexpected" ? [e.found.kind] : []));
     expect(new Set(found)).toEqual(new Set(["symbol", "endOfLine", "plusMinus", "alternative"]));
@@ -216,6 +234,35 @@ describe("messages about a step name its lines as numbered on screen", () => {
     expect(plain(strings.en.explain(step("x = 3", "x = = 3"), "answer"))).toBe("The stated answer: more than one '='.");
     expect(plain(strings.ar.explain(step("x = 3", "x = = 3"), "answer"))).toBe("الإجابة المعلنة: أكثر من علامة «=» واحدة.");
     expect(plain(strings.en.explain(timeout(), "answer"))).toBe("Checking the stated answer took longer than 2 seconds, the time the engine allows.");
+  });
+});
+
+describe("the engine's limits", () => {
+  it("are named in the message, in English and Arabic", () => {
+    const say = (line: string) => [plain(strings.en.explain(step("x = 1", line), { line: 7 })), plain(strings.ar.explain(step("x = 1", line), { line: 7 }))];
+    expect(say("1".repeat(501))).toEqual([
+      "Line 7: longer than 500 characters, the most the engine reads in a line.",
+      "السطر 7: أطول من 500 حرف، وهو أقصى ما يقرؤه المحرّك في السطر.",
+    ]);
+    expect(say(`${"(".repeat(65)}x${")".repeat(65)} = 1`)).toEqual([
+      "Line 7: brackets and signs nested more than 64 deep, the most the engine reads.",
+      "السطر 7: أقواس وإشارات متداخلة أكثر من 64 مستوًى، وهو أقصى ما يقرؤه المحرّك.",
+    ]);
+    expect(say("((x + 1)^64)^64 = 0")).toEqual([
+      "Line 7: too complex to check: it needs a degree above 64, the highest the engine works with.",
+      "السطر 7: أعقد من أن يُتحقَّق منه: يتطلب درجةً أعلى من 64، وهي أعلى درجة يعمل بها المحرّك.",
+    ]);
+    expect(say(Array.from({ length: 13 }, (_, k) => `x = ${k}`).join(" or "))).toEqual([
+      "Line 7: more than 12 alternatives, the most the engine reads in an answer line.",
+      "السطر 7: أكثر من 12 بديلًا، وهو أقصى ما يقرؤه المحرّك في سطر إجابة.",
+    ]);
+  });
+
+  it("a line over a limit that was not read cannot be read; one too complex is too complex", () => {
+    expect(badgeOf(step("x = 1", "1".repeat(501)))).toBe("cannotRead");
+    expect(badgeOf(step("x = 1", `${"-".repeat(65)}x = 1`))).toBe("cannotRead");
+    expect(badgeOf(step("x = 1", Array.from({ length: 13 }, (_, k) => `x = ${k}`).join(" or ")))).toBe("cannotRead");
+    expect(badgeOf(step("x = 1", "((x + 1)^64)^64 = 0"))).toBe("tooComplex");
   });
 });
 
