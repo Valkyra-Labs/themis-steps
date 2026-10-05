@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { StatusBadge } from "@valkyra-labs/stoa-react";
+import { StatusBadge, Table } from "@valkyra-labs/stoa-react";
 import { check, solutions, type Check } from "./engine";
 import type { Strings } from "./i18n";
 import { pretty } from "./pretty";
@@ -72,38 +72,42 @@ export function Audit({ t }: { t: Strings }) {
       <p>
         <strong>{t.auditSummary(ok, rows.length)}</strong>
       </p>
-      <table className="stoa-table">
-        <caption className="stoa-visually-hidden">{t.tabs.audit}</caption>
-        <thead>
-          <tr>
-            <th scope="col">{t.exercise}</th>
-            <th scope="col">{t.stated}</th>
-            <th scope="col">{t.actual}</th>
-            <th scope="col">{t.verdict}</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((r) => (
-            <tr key={r.equation}>
-              <td>
-                <bdi dir="ltr" className="math">
-                  {pretty(r.equation)}
-                </bdi>
-              </td>
-              <td>{answer(r.stated)}</td>
-              <td>{answer(r.actual)}</td>
-              <td>
+      {/* Too wide for a phone, the table scrolls sideways in its own region;
+          maths stays on one line. */}
+      <Table
+        caption={t.tabs.audit}
+        hideCaption
+        rows={rows}
+        rowKey={(r) => r.equation}
+        emptyText=""
+        columns={[
+          {
+            id: "exercise",
+            header: t.exercise,
+            cell: (r) => (
+              <bdi dir="ltr" className="math">
+                {pretty(r.equation)}
+              </bdi>
+            ),
+          },
+          { id: "stated", header: t.stated, cell: (r) => answer(r.stated) },
+          { id: "actual", header: t.actual, cell: (r) => answer(r.actual) },
+          {
+            id: "verdict",
+            header: t.verdict,
+            cell: (r) => (
+              <>
                 <StatusBadge tone={r.ok ? "positive" : "negative"}>{r.ok ? t.answerOk : t.answerWrong}</StatusBadge>
                 {r.wrong && (
                   <div className="muted">
                     <RichText value={t.explain(r.wrong, "answer")} />
                   </div>
                 )}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+              </>
+            ),
+          },
+        ]}
+      />
     </div>
   );
 }

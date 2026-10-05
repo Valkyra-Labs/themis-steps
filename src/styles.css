@@ -45,11 +45,20 @@ strong { font-weight: var(--stoa-font-weight-semibold); }
 .notice { display: flex; flex-wrap: wrap; gap: var(--stoa-space-2); align-items: center; }
 .examples { display: grid; gap: var(--stoa-space-4); }
 .math { font-family: var(--stoa-font-family-mono); }
-.inline-math { white-space: nowrap; }
+/* Maths is never broken across lines. */
+.inline-math, .math { white-space: nowrap; }
 .audit td { vertical-align: top; padding-block: var(--stoa-space-2); }
+.audit .stoa-badge { white-space: nowrap; }
+/* The verdict's explanation wraps, in a column wide enough to read. */
+.audit td:last-child { min-inline-size: 16em; }
 /* On a phone the field hint is the longest text on the first screen (in
    Arabic most of it), and Stoa draws it at 11px; Lighthouse's mobile audit
    wants 12px or more for most of the text, so narrow screens use Stoa's xs. */
 @media (max-width: 600px) {
   .working .stoa-field__description { font-size: var(--stoa-font-size-xs); }
+  /* Stoa's tabs wrap a tab that does not fit onto a second row, where it
+     reads as a row of its own; on a phone the three tabs share one row
+     instead, each label on up to two lines. */
+  .content .stoa-tabs__list { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 0; }
+  .content .stoa-tabs__tab { text-align: center; padding-inline: var(--stoa-space-2); }
 }

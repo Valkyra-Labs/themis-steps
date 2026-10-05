@@ -439,6 +439,34 @@ test("on a phone the field hint is at least 12px", async ({ page }) => {
   await expect(page.locator(".working .stoa-field__description")).toHaveCSS("font-size", "12px");
 });
 
+for (const lang of ["en", "ar"]) {
+  test(`on a phone the tabs share one row and the audit keeps each piece of maths on one line (${lang})`, async ({ page }) => {
+    await page.setViewportSize({ width: 375, height: 812 });
+    await page.goto(`/?lang=${lang}`);
+    await expect(page.getByRole("tab")).toHaveCount(3);
+    const tabs = await page.getByRole("tab").all();
+    const tops = await Promise.all(tabs.map(async (tab) => (await tab.boundingBox())!.y));
+    expect(new Set(tops).size, "tab rows").toBe(1);
+    await tabs[2]!.click();
+    await expect(page.locator(".audit table")).toBeVisible();
+    // Each piece of maths and each badge in the table is drawn on one line.
+    const broken = await page.locator(".audit table").evaluate((table) =>
+      [...table.querySelectorAll("bdi, .stoa-badge")]
+        .filter((el) => {
+          const range = document.createRange();
+          range.selectNodeContents(el);
+          const lines = new Set([...range.getClientRects()].map((r) => Math.round(r.top)));
+          return lines.size > 1;
+        })
+        .map((el) => el.textContent),
+    );
+    expect(broken).toEqual([]);
+    // The table scrolls in its own region; the page does not scroll sideways.
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+    await expectNoSeriousViolations(page);
+  });
+}
+
 test("arrow keys in the tabs follow the page direction", async ({ page }) => {
   // React Aria takes its direction from the locale it is given, not from
   // the page; the browser here is en-US in both languages.
