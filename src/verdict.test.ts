@@ -22,6 +22,9 @@ describe("the badge of a line", () => {
     expect(badgeOf(step("x = 1", "x^2 + 1"))).toBe("cannotCompare");
     expect(badgeOf(step("x = 1", "y = 1"))).toBe("cannotCompare");
     expect(badgeOf(failed({ kind: "timeout", limitMs: 2000 }))).toBe("tooComplex");
+    // Too complex is said of the line that is; the one after it is not checked.
+    expect(badgeOf(step("x = 1", "((x + 1)^64)^64 = 0"))).toBe("tooComplex");
+    expect(badgeOf(step("((x + 1)^64)^64 = 0", "x = 1"))).toBe("notChecked");
     expect(badgeOf(failed({ kind: "stopped" }))).toBe("notChecked");
     expect(badgeOf(failed({ kind: "unknown", text: "something new" }))).toBe("notChecked");
   });

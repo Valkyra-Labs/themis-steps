@@ -144,10 +144,10 @@ export function badgeOf(result: Check | undefined): Badge {
   const e = result.error;
   switch (e?.kind) {
     case "parse":
-      // Read, but asking for more work than the engine does.
-      if (e.error.kind === "tooComplex") return "tooComplex";
       // Line 2 of the pair is this one; line 1 is the one before it.
-      return e.line === 2 ? "cannotRead" : "notChecked";
+      if (e.line !== 2) return "notChecked";
+      // Read, but asking for more work than the engine does.
+      return e.error.kind === "tooComplex" ? "tooComplex" : "cannotRead";
     case "kindMismatch":
     case "differentUnknowns":
       return "cannotCompare";
