@@ -6,7 +6,7 @@ import type { Check, EngineError, Found, ParseError } from "./verdict";
 export type Lang = "en" | "ar";
 
 /** Text with maths in it. Maths parts are shown left to right, isolated
- * from the sentence around them (a <bdi dir="ltr">), in both languages. */
+ * from the sentence around them (Stoa's Ltr), in both languages. */
 export type Part = string | { math: string };
 export type Rich = Part[];
 
@@ -19,9 +19,10 @@ export type Where = { line: number } | "answer";
  * for one of them. */
 const shown = (where: { line: number }, pair: number) => where.line - 2 + pair;
 
-/** Maths inside a plain string (a field hint cannot hold elements): the
- * Unicode left-to-right isolate, the plain-text form of <bdi dir="ltr">,
- * with no-break spaces so the maths is not split across lines. */
+/** Maths inside a plain string (a field hint cannot hold elements, so not
+ * Stoa's Ltr): the Unicode left-to-right isolate, the plain-text form of
+ * the same isolation, with no-break spaces so the maths is not split
+ * across lines. */
 const ltr = (s: string) => `\u2066${s.replaceAll(" ", "\u00a0")}\u2069`;
 
 const m = (math: string): Part => ({ math });

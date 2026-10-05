@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { StatusBadge, Table } from "@valkyra-labs/stoa-react";
+import { Ltr, StatusBadge, Table } from "@valkyra-labs/stoa-react";
 import { check, solutions, type Check } from "./engine";
 import type { Strings } from "./i18n";
 import { pretty } from "./pretty";
@@ -61,9 +61,7 @@ export function Audit({ t }: { t: Strings }) {
     ) : v[0] === "*" ? (
       <RichText value={t.every} />
     ) : (
-      <bdi dir="ltr" className="math">
-        {pretty(v.join(t.listSeparator))}
-      </bdi>
+      <Ltr mono>{pretty(v.join(t.listSeparator))}</Ltr>
     );
   const ok = rows.filter((r) => r.ok).length;
   return (
@@ -85,9 +83,7 @@ export function Audit({ t }: { t: Strings }) {
             id: "exercise",
             header: t.exercise,
             cell: (r) => (
-              <bdi dir="ltr" className="math">
-                {pretty(r.equation)}
-              </bdi>
+              <Ltr mono>{pretty(r.equation)}</Ltr>
             ),
           },
           { id: "stated", header: t.stated, cell: (r) => answer(r.stated) },

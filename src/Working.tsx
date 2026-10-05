@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Button, TextField } from "@valkyra-labs/stoa-react";
+import { Button, Ltr, TextField } from "@valkyra-labs/stoa-react";
 import { check, type Check } from "./engine";
 import type { Strings } from "./i18n";
 import { addLine, canUndo, isChecking, removeLast, setProblem, setResult, start, startOver, undo, type Notice, type WorkingState } from "./lines";
@@ -103,7 +103,7 @@ export function Working({ t }: { t: Strings }) {
       <p className="stoa-visually-hidden" aria-live="polite">
         {announce && (
           <>
-            <bdi dir="ltr">{pretty(t.showLine(announce.text))}</bdi>: <RichText value={t.explain(announce.result, { line: announce.line })} />
+            <Ltr>{pretty(t.showLine(announce.text))}</Ltr>: <RichText value={t.explain(announce.result, { line: announce.line })} />
           </>
         )}
       </p>

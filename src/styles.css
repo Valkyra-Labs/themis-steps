@@ -44,9 +44,8 @@ strong { font-weight: var(--stoa-font-weight-semibold); }
 .actions { display: flex; flex-wrap: wrap; gap: var(--stoa-space-2); align-items: center; }
 .notice { display: flex; flex-wrap: wrap; gap: var(--stoa-space-2); align-items: center; }
 .examples { display: grid; gap: var(--stoa-space-4); }
-.math { font-family: var(--stoa-font-family-mono); }
-/* Maths is never broken across lines. */
-.inline-math, .math { white-space: nowrap; }
+/* Maths in a sentence or in the audit is never broken across lines. */
+.step__why .stoa-ltr, .audit .stoa-ltr { white-space: nowrap; }
 .audit td { vertical-align: top; padding-block: var(--stoa-space-2); }
 .audit .stoa-badge { white-space: nowrap; }
 /* The verdict's explanation wraps, in a column wide enough to read. */

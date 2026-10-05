@@ -1,4 +1,4 @@
-import { StatusBadge, type StatusTone } from "@valkyra-labs/stoa-react";
+import { Ltr, StatusBadge, type StatusTone } from "@valkyra-labs/stoa-react";
 import { badgeOf, type Badge, type Check } from "./verdict";
 import type { Strings } from "./i18n";
 import { pretty } from "./pretty";
@@ -31,7 +31,7 @@ export function StepRow({ n, text, result, checking = false, t }: { n: number; t
         {n}
       </span>
       <span className="step__math" dir="ltr">
-        <bdi>{pretty(t.showLine(text))}</bdi>
+        <Ltr>{pretty(t.showLine(text))}</Ltr>
       </span>
       <span className="step__badge">{badge}</span>
       {/* A correct step is explained only when it widens the domain. */}
