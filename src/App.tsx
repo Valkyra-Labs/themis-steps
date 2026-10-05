@@ -86,6 +86,7 @@ export function App() {
               <>
                 <ChoiceGroup<ThemeChoice>
                   label={t.theme}
+                  hideLabel
                   size="small"
                   value={theme ?? "system"}
                   onChange={chooseTheme}
@@ -100,6 +101,7 @@ export function App() {
                     marked as such. */}
                 <ChoiceGroup<Lang>
                   label={t.language}
+                  hideLabel
                   size="small"
                   value={lang}
                   onChange={switchLang}
