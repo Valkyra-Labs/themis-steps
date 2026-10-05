@@ -29,12 +29,14 @@ strong { font-weight: var(--stoa-font-weight-semibold); }
 .load-failed code { font-family: var(--stoa-font-family-mono); font-size: var(--stoa-font-size-sm); }
 .steps { list-style: none; margin: 0 0 var(--stoa-space-4); padding: 0; display: grid; gap: var(--stoa-space-2); }
 .step {
-  display: grid; grid-template-columns: 2ch 1fr auto; gap: var(--stoa-space-1) var(--stoa-space-3); align-items: baseline;
+  display: grid; grid-template-columns: 2ch minmax(0, 1fr) auto; gap: var(--stoa-space-1) var(--stoa-space-3); align-items: baseline;
   padding: var(--stoa-space-2) var(--stoa-space-3); border: 1px solid var(--stoa-color-border); border-radius: var(--stoa-radius-md); background: var(--stoa-color-surface);
 }
 .step--changed, .step--not_equal { border-color: var(--stoa-color-down); }
 .step__n { color: var(--stoa-color-text-subtle); font-family: var(--stoa-font-family-mono); }
-.step__math { font-family: var(--stoa-font-family-mono); font-size: var(--stoa-font-size-lg); text-align: start; }
+/* A line with no space in it (a long run of brackets) wraps anywhere
+   rather than widening the row past the page. */
+.step__math { font-family: var(--stoa-font-family-mono); font-size: var(--stoa-font-size-lg); text-align: start; overflow-wrap: anywhere; }
 .step__why { grid-column: 2 / -1; margin: 0; color: var(--stoa-color-text-muted); font-size: var(--stoa-font-size-sm); }
 .working { display: grid; gap: var(--stoa-space-3); max-inline-size: 640px; }
 .actions { display: flex; flex-wrap: wrap; gap: var(--stoa-space-2); align-items: center; }

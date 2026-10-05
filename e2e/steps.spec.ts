@@ -523,6 +523,25 @@ for (const lang of ["en", "ar"]) {
   });
 }
 
+for (const width of [375, 1280]) {
+  test(`a long line without spaces wraps inside its row (${width} px)`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 800 });
+    await page.goto("/");
+    const next = page.getByLabel("Next line");
+    await next.fill(`${"(".repeat(300)}x${")".repeat(300)} = 1`);
+    await next.press("Enter");
+    const row = page.locator(".working .step").nth(1);
+    await expect(row).toContainText("Cannot read this line");
+    const working = (await page.locator(".working").boundingBox())!;
+    const box = (await row.boundingBox())!;
+    expect(box.x).toBeGreaterThanOrEqual(working.x - 1);
+    expect(box.x + box.width).toBeLessThanOrEqual(working.x + working.width + 1);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+    // Neither the page nor its region scrolled sideways.
+    expect(await page.locator(".stoa-page-shell__scroll").evaluate((el) => el.scrollLeft)).toBe(0);
+  });
+}
+
 test("arrow keys in the tabs follow the page direction", async ({ page }) => {
   // React Aria takes its direction from the locale it is given, not from
   // the page; the browser here is en-US in both languages.
