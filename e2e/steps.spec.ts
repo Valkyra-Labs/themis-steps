@@ -426,6 +426,21 @@ test("the chosen theme survives a reload and the next visit", async ({ page }) =
   await expect(page.getByRole("radio", { name: "Light" })).toBeChecked();
 });
 
+test("the browser's own parts are drawn in the theme shown", async ({ page }) => {
+  const scheme = () => page.locator("html").evaluate((el) => getComputedStyle(el).colorScheme);
+  await page.emulateMedia({ colorScheme: "dark" });
+  await page.goto("/");
+  await expect(page.getByRole("radio", { name: "System" })).toBeChecked();
+  expect(await scheme()).toBe("dark");
+  await page.getByRole("radio", { name: "Light" }).click();
+  expect(await scheme()).toBe("light");
+  await page.emulateMedia({ colorScheme: "light" });
+  await page.getByRole("radio", { name: "Dark" }).click();
+  expect(await scheme()).toBe("dark");
+  await page.getByRole("radio", { name: "System" }).click();
+  expect(await scheme()).toBe("light");
+});
+
 test("the theme can be chosen with storage blocked", async ({ page }) => {
   await page.addInitScript(() => {
     Object.defineProperty(window, "localStorage", {
