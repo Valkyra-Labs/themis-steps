@@ -1,22 +1,28 @@
 // Interface strings in English and Arabic, and the explanations of the
 // engine's verdicts, written here from its structured result in either
 // language rather than taken from its English sentence.
-import type { Check, EngineError, Found, ParseError } from "./engine";
+import type { Check, EngineError, Found, ParseError } from "./verdict";
 
 export type Lang = "en" | "ar";
 
 /** Text with maths in it. Maths parts are shown left to right, isolated
- * from the sentence around them (a <bdi dir="ltr">), in both languages. */
+ * from the sentence around them (Stoa's Ltr), in both languages. */
 export type Part = string | { math: string };
 export type Rich = Part[];
 
-/** What an explanation describes: a step of working, or an exercise's
+/** What an explanation describes: the step of working that ends on the
+ * line numbered `line` on screen (from line - 1 to it), or an exercise's
  * stated answer checked against its equation. */
-export type Subject = "step" | "answer";
+export type Where = { line: number } | "answer";
 
-/** Maths inside a plain string (a field hint cannot hold elements): the
- * Unicode left-to-right isolate, the plain-text form of <bdi dir="ltr">,
- * with no-break spaces so the maths is not split across lines. */
+/** The engine numbers the two lines it compares 1 and 2; the number shown
+ * for one of them. */
+const shown = (where: { line: number }, pair: number) => where.line - 2 + pair;
+
+/** Maths inside a plain string (a field hint cannot hold elements, so not
+ * Stoa's Ltr): the Unicode left-to-right isolate, the plain-text form of
+ * the same isolation, with no-break spaces so the maths is not split
+ * across lines. */
 const ltr = (s: string) => `\u2066${s.replaceAll(" ", "\u00a0")}\u2069`;
 
 const m = (math: string): Part => ({ math });
@@ -73,24 +79,54 @@ function parseErrorEn(e: ParseError): Part[] {
       return ["division by zero"];
     case "tooManyEquals":
       return ["more than one '", m("="), "'"];
+    case "tooLong":
+      return [`longer than ${e.max} characters, the most the engine reads in a line`];
+    case "tooDeep":
+      return [`brackets and signs nested more than ${e.max} deep, the most the engine reads`];
+    case "tooComplex":
+      return [`too complex to check: it needs a degree above ${e.max}, the highest the engine works with`];
+    case "tooManyAlternatives":
+      return [`more than ${e.max} alternatives, the most the engine reads in an answer line`];
   }
 }
 
-function errorEn(e: EngineError): Rich {
+function errorEn(e: EngineError, where: Where): Rich {
+  const kind = (equation: boolean) => (equation ? "an equation" : "an expression");
+  if (where === "answer")
+    switch (e.kind) {
+      case "parse":
+        return [e.line === 1 ? "The equation: " : "The stated answer: ", ...parseErrorEn(e.error), "."];
+      case "kindMismatch":
+        return ["One is an equation and the other an expression, so the two cannot be compared."];
+      case "differentUnknowns":
+        return ["The equation uses ", m(e.a), " and the stated answer uses ", m(e.b), "."];
+      case "unknown":
+        return [e.text];
+      case "timeout":
+        return [`Checking the stated answer took longer than ${e.limitMs / 1000} seconds, the time the engine allows.`];
+      case "stopped":
+        return ["The engine stopped while checking the stated answer."];
+    }
+  const [a, b] = [shown(where, 1), shown(where, 2)];
   switch (e.kind) {
     case "parse":
-      return [`line ${e.line}: `, ...parseErrorEn(e.error)];
+      return [`Line ${shown(where, e.line)}: `, ...parseErrorEn(e.error), "."];
     case "kindMismatch":
-      return ["one line is an equation and the other is an expression"];
+      return [`Line ${a} is ${kind(e.firstIsEquation)} and line ${b} is ${kind(!e.firstIsEquation)}, so the two cannot be compared.`];
     case "differentUnknowns":
-      return ["the lines use different unknowns (", m(e.a), " and ", m(e.b), ")"];
+      return [`Line ${a} uses `, m(e.a), ` and line ${b} uses `, m(e.b), "; write both with the same unknown."];
     case "unknown":
       return [e.text];
+    case "timeout":
+      return [`Checking line ${b} against line ${a} took longer than ${e.limitMs / 1000} seconds, the time the engine allows.`];
+    case "stopped":
+      return [`The engine stopped while checking line ${b} against line ${a}.`];
   }
 }
 
-function explainEn(c: Check, subject: Subject): Rich {
-  if (c.kind === "error") return errorEn(c.error ?? { kind: "unknown", text: c.explanation });
+function explainEn(c: Check, where: Where): Rich {
+  if (c.kind === "error") return errorEn(c.error ?? { kind: "unknown", text: c.explanation }, where);
+  const subject = where === "answer" ? "answer" : "step";
   const out: Part[] = [];
   if (c.kind === "equivalent") out.push("Correct: the step keeps the same solutions.");
   else if (c.kind === "not_equal")
@@ -133,6 +169,10 @@ function explainEn(c: Check, subject: Subject): Rich {
 // المجال، الإجابة المعلنة). Lists of roots take the Arabic comma, and
 // clauses the Arabic semicolon.
 
+/** A number of seconds, the noun agreeing with it: ثانية واحدة، ثانيتين،
+ * 3 ثوانٍ (three to ten), 11 ثانية (eleven and up). */
+const secondsAr = (n: number) => (n === 1 ? "ثانية واحدة" : n === 2 ? "ثانيتين" : n <= 10 ? `${n} ثوانٍ` : `${n} ثانية`);
+
 /** "the solution(s)", agreeing with the count: one, two, three or more. */
 const solutionsAr = (n: number) => (n === 1 ? "الحل" : n === 2 ? "الحلّين" : "الحلول");
 /** "which is not a solution", agreeing with the count. */
@@ -171,26 +211,56 @@ function parseErrorAr(e: ParseError): Part[] {
       return ["قسمة على صفر"];
     case "tooManyEquals":
       return ["أكثر من علامة «", m("="), "» واحدة"];
+    // The counted nouns agree with the engine's limits as they are: 500
+    // (a hundred: singular genitive), 64 and 12 (eleven to ninety-nine:
+    // singular accusative).
+    case "tooLong":
+      return [`أطول من ${e.max} حرف، وهو أقصى ما يقرؤه المحرّك في السطر`];
+    case "tooDeep":
+      return [`أقواس وإشارات متداخلة أكثر من ${e.max} مستوًى، وهو أقصى ما يقرؤه المحرّك`];
+    case "tooComplex":
+      return [`أعقد من أن يُتحقَّق منه: يتطلب درجةً أعلى من ${e.max}، وهي أعلى درجة يعمل بها المحرّك`];
+    case "tooManyAlternatives":
+      return [`أكثر من ${e.max} بديلًا، وهو أقصى ما يقرؤه المحرّك في سطر إجابة`];
   }
 }
 
-function errorAr(e: EngineError): Rich {
+function errorAr(e: EngineError, where: Where): Rich {
+  const kind = (equation: boolean) => (equation ? "معادلة" : "عبارة");
+  // A message in a form this app cannot read is English, so it is not
+  // shown; the badge already says the step was not checked.
+  if (e.kind === "unknown") return ["تعذّر التحقق من هذه الخطوة."];
+  if (where === "answer")
+    switch (e.kind) {
+      case "parse":
+        return [e.line === 1 ? "المعادلة: " : "الإجابة المعلنة: ", ...parseErrorAr(e.error), "."];
+      case "kindMismatch":
+        return ["أحدهما معادلة والآخر عبارة، فلا يمكن المقارنة بينهما."];
+      case "differentUnknowns":
+        return ["تستخدم المعادلة المجهول ", m(e.a), " والإجابة المعلنة المجهول ", m(e.b), "."];
+      case "timeout":
+        return [`استغرق التحقق من الإجابة المعلنة أكثر من ${secondsAr(e.limitMs / 1000)}، وهي المدة التي يسمح بها المحرّك.`];
+      case "stopped":
+        return ["توقّف المحرّك أثناء التحقق من الإجابة المعلنة."];
+    }
+  const [a, b] = [shown(where, 1), shown(where, 2)];
   switch (e.kind) {
     case "parse":
-      return [`السطر ${e.line}: `, ...parseErrorAr(e.error)];
+      return [`السطر ${shown(where, e.line)}: `, ...parseErrorAr(e.error), "."];
     case "kindMismatch":
-      return ["أحد السطرين معادلة والآخر عبارة"];
+      return [`السطر ${a} ${kind(e.firstIsEquation)} والسطر ${b} ${kind(!e.firstIsEquation)}، فلا يمكن المقارنة بينهما.`];
     case "differentUnknowns":
-      return ["يستخدم السطران مجهولين مختلفين (", m(e.a), " و", m(e.b), ")"];
-    case "unknown":
-      // A message in a form this app cannot read is English, so it is not
-      // shown; the badge already says the line could not be read.
-      return ["تعذّرت قراءة السطر"];
+      return [`يستخدم السطر ${a} المجهول `, m(e.a), ` والسطر ${b} المجهول `, m(e.b), "؛ اكتب السطرين بالمجهول نفسه."];
+    case "timeout":
+      return [`استغرق التحقق من السطر ${b} مقارنةً بالسطر ${a} أكثر من ${secondsAr(e.limitMs / 1000)}، وهي المدة التي يسمح بها المحرّك.`];
+    case "stopped":
+      return [`توقّف المحرّك أثناء التحقق من السطر ${b} مقارنةً بالسطر ${a}.`];
   }
 }
 
-function explainAr(c: Check, subject: Subject): Rich {
-  if (c.kind === "error") return errorAr(c.error ?? { kind: "unknown", text: c.explanation });
+function explainAr(c: Check, where: Where): Rich {
+  if (c.kind === "error") return errorAr(c.error ?? { kind: "unknown", text: c.explanation }, where);
+  const subject = where === "answer" ? "answer" : "step";
   const out: Part[] = [];
   if (c.kind === "equivalent") out.push("صحيح: تحافظ الخطوة على الحلول نفسها.");
   else if (c.kind === "not_equal")
@@ -251,8 +321,12 @@ const en = {
   wrong: "Changes the solutions",
   notEqual: "Not equal",
   cannotRead: "Cannot read this line",
+  cannotCompare: "Cannot compare",
+  tooComplex: "Too complex to check",
+  notChecked: "Not checked",
   start: "Start",
   checkedIn: (ms: string) => `checked in ${ms} ms`,
+  checking: "Checking…",
   explain: explainEn,
   /** A line of maths as shown, with the words between alternatives in this
    * language; the engine is given the line as written (see toEngine). */
@@ -281,6 +355,7 @@ const en = {
   auditSummary: (ok: number, n: number) => `${ok} of ${n} stated answers are correct`,
   answerOk: "Answer correct",
   answerWrong: "Answer wrong",
+  auditFailed: "The exercises could not be checked. Reload the page to try again.",
   loading: "Loading the engine…",
   loadFailed: "The engine could not be loaded. Check your connection and try again.",
   retry: "Try again",
@@ -310,8 +385,12 @@ const ar: typeof en = {
   wrong: "يغيّر الحلول",
   notEqual: "غير متساويين",
   cannotRead: "تعذّرت قراءة هذا السطر",
+  cannotCompare: "تتعذّر المقارنة",
+  tooComplex: "أعقد من أن يُتحقَّق منه",
+  notChecked: "لم يُتحقَّق منه",
   start: "البداية",
   checkedIn: (ms: string) => `تم التحقق خلال ${ms} ملّي ثانية`,
+  checking: "جارٍ التحقق…",
   explain: explainAr,
   showLine: (line: string) => line.replace(/\s+or\s+/giu, " أو ").replace(/,\s*/gu, "، ").replace(/;\s*/gu, "؛ "),
   listSeparator: "، ",
@@ -337,6 +416,7 @@ const ar: typeof en = {
   auditSummary: (ok: number, n: number) => `${ok} من ${n} ${n >= 3 && n <= 10 ? "إجابات معلنة صحيحة" : "إجابة معلنة صحيحة"}`,
   answerOk: "الإجابة صحيحة",
   answerWrong: "الإجابة خاطئة",
+  auditFailed: "تعذّر التحقق من التمارين. أعد تحميل الصفحة لتحاول مجددًا.",
   loading: "جارٍ تحميل المحرّك…",
   loadFailed: "تعذّر تحميل المحرّك. تحقّق من اتصالك ثم أعد المحاولة.",
   retry: "أعد المحاولة",

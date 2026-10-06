@@ -11,15 +11,11 @@
 @import "@valkyra-labs/stoa-react/styles.css";
 
 :root {
-  color-scheme: light dark;
   font-family: var(--stoa-font-family-sans);
   font-size: var(--stoa-font-size-md);
   background: var(--stoa-color-bg);
   color: var(--stoa-color-text);
 }
-/* A chosen theme also sets the scheme of the browser's own controls. */
-:root[data-theme="light"] { color-scheme: light; }
-:root[data-theme="dark"] { color-scheme: dark; }
 body { margin: 0; }
 strong { font-weight: var(--stoa-font-weight-semibold); }
 .muted { color: var(--stoa-color-text-muted); font-size: var(--stoa-font-size-sm); }
@@ -33,23 +29,33 @@ strong { font-weight: var(--stoa-font-weight-semibold); }
 .load-failed code { font-family: var(--stoa-font-family-mono); font-size: var(--stoa-font-size-sm); }
 .steps { list-style: none; margin: 0 0 var(--stoa-space-4); padding: 0; display: grid; gap: var(--stoa-space-2); }
 .step {
-  display: grid; grid-template-columns: 2ch 1fr auto; gap: var(--stoa-space-1) var(--stoa-space-3); align-items: baseline;
+  display: grid; grid-template-columns: 2ch minmax(0, 1fr) auto; gap: var(--stoa-space-1) var(--stoa-space-3); align-items: baseline;
   padding: var(--stoa-space-2) var(--stoa-space-3); border: 1px solid var(--stoa-color-border); border-radius: var(--stoa-radius-md); background: var(--stoa-color-surface);
 }
 .step--changed, .step--not_equal { border-color: var(--stoa-color-down); }
 .step__n { color: var(--stoa-color-text-subtle); font-family: var(--stoa-font-family-mono); }
-.step__math { font-family: var(--stoa-font-family-mono); font-size: var(--stoa-font-size-lg); text-align: start; }
+/* A line with no space in it (a long run of brackets) wraps anywhere
+   rather than widening the row past the page. */
+.step__math { font-family: var(--stoa-font-family-mono); font-size: var(--stoa-font-size-lg); text-align: start; overflow-wrap: anywhere; }
 .step__why { grid-column: 2 / -1; margin: 0; color: var(--stoa-color-text-muted); font-size: var(--stoa-font-size-sm); }
 .working { display: grid; gap: var(--stoa-space-3); max-inline-size: 640px; }
 .actions { display: flex; flex-wrap: wrap; gap: var(--stoa-space-2); align-items: center; }
 .notice { display: flex; flex-wrap: wrap; gap: var(--stoa-space-2); align-items: center; }
 .examples { display: grid; gap: var(--stoa-space-4); }
-.math { font-family: var(--stoa-font-family-mono); }
-.inline-math { white-space: nowrap; }
+/* Maths in a sentence or in the audit is never broken across lines. */
+.step__why .stoa-ltr, .audit .stoa-ltr { white-space: nowrap; }
 .audit td { vertical-align: top; padding-block: var(--stoa-space-2); }
+.audit .stoa-badge { white-space: nowrap; }
+/* The verdict's explanation wraps, in a column wide enough to read. */
+.audit td:last-child { min-inline-size: 16em; }
 /* On a phone the field hint is the longest text on the first screen (in
    Arabic most of it), and Stoa draws it at 11px; Lighthouse's mobile audit
    wants 12px or more for most of the text, so narrow screens use Stoa's xs. */
 @media (max-width: 600px) {
   .working .stoa-field__description { font-size: var(--stoa-font-size-xs); }
+  /* Stoa's tabs wrap a tab that does not fit onto a second row, where it
+     reads as a row of its own; on a phone the three tabs share one row
+     instead, each label on up to two lines. */
+  .content .stoa-tabs__list { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 0; }
+  .content .stoa-tabs__tab { text-align: center; padding-inline: var(--stoa-space-2); }
 }

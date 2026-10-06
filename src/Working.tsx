@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from "react";
-import { Button, TextField } from "@valkyra-labs/stoa-react";
+import { Button, Ltr, TextField } from "@valkyra-labs/stoa-react";
 import { check, type Check } from "./engine";
 import type { Strings } from "./i18n";
-import { addLine, canUndo, removeLast, setProblem, start, startOver, undo, type Notice, type WorkingState } from "./lines";
+import { addLine, canUndo, isChecking, removeLast, setProblem, setResult, start, startOver, undo, type Notice, type WorkingState } from "./lines";
 import { pretty } from "./pretty";
 import { RichText } from "./RichText";
 import { StepRow } from "./StepRow";
@@ -19,15 +19,16 @@ function noticeText(n: Notice, t: Strings): string {
 }
 
 /** The learner writes the working; each line is checked against the one
- * before it as soon as Enter is pressed. Removing lines can be undone
- * until the next edit. */
+ * before it as soon as Enter is pressed, in the engine's worker, and shows
+ * that it is being checked until its verdict arrives. Removing lines can
+ * be undone until the next edit. */
 export function Working({ t }: { t: Strings }) {
   const [state, setState] = useState<WorkingState>(() => start("x^2 - 5x + 6 = 0"));
   const [next, setNext] = useState("");
   // The last line checked, announced with its verdict in the current
   // language (so a change of language does not leave the other one behind).
-  const [announce, setAnnounce] = useState<{ text: string; result: Check } | null>(null);
-  const nextField = useRef<HTMLDivElement>(null);
+  const [announce, setAnnounce] = useState<{ text: string; line: number; result: Check } | null>(null);
+  const nextField = useRef<HTMLInputElement>(null);
   // Set when the control that had focus goes away (a button that becomes
   // disabled, or Undo once used); focus then moves to the next-line field.
   const [refocus, setRefocus] = useState(false);
@@ -35,18 +36,22 @@ export function Working({ t }: { t: Strings }) {
 
   useEffect(() => {
     if (!refocus) return;
-    nextField.current?.querySelector("input")?.focus();
+    nextField.current?.focus();
     setRefocus(false);
   }, [refocus]);
 
-  const add = () => {
+  const add = async () => {
     const text = next.trim();
     if (!text) return;
-    const prev = lines[lines.length - 1]!.text;
-    const result = check(prev, text);
-    setState(addLine(state, { text, result }));
+    const index = lines.length;
+    const prev = lines[index - 1]!.text;
+    setState(addLine(state, { text, checking: true }));
     setNext("");
-    setAnnounce({ text, result });
+    // Checks run one after another, so a line entered while the one before
+    // it is still checked waits for it.
+    const result = await check(prev, text);
+    setState((s) => setResult(s, index, result));
+    setAnnounce({ text, line: index + 1, result });
   };
 
   const remove = (action: (s: WorkingState) => WorkingState) => {
@@ -56,28 +61,27 @@ export function Working({ t }: { t: Strings }) {
   };
 
   const last = lines[lines.length - 1]?.result;
+  const checking = isChecking(state);
   return (
     <div className="working">
       <ol className="steps" aria-label={t.tabs.working}>
         {lines.map((l, i) => (
-          <StepRow key={i} n={i + 1} text={l.text} result={l.result} t={t} />
+          <StepRow key={i} n={i + 1} text={l.text} result={l.result} checking={l.checking} t={t} />
         ))}
       </ol>
       {lines.length === 1 && (
         <TextField label={t.problem} value={lines[0]!.text} onChange={(v) => setState(setProblem(state, v))} dir="ltr" mono />
       )}
-      <div ref={nextField}>
-        <TextField label={t.nextLine} value={next} onChange={setNext} onEnter={add} description={t.nextHint} dir="ltr" mono autoFocus />
-      </div>
+      <TextField ref={nextField} label={t.nextLine} value={next} onChange={setNext} onEnter={add} description={t.nextHint} dir="ltr" mono autoFocus />
       <div className="actions">
         <Button onPress={add}>{t.nextLine}</Button>
-        <Button isDisabled={lines.length < 2} onPress={() => remove(removeLast)}>
+        <Button isDisabled={lines.length < 2 || checking} onPress={() => remove(removeLast)}>
           {t.removeLast}
         </Button>
-        <Button isDisabled={lines.length < 2} onPress={() => remove(startOver)}>
+        <Button isDisabled={lines.length < 2 || checking} onPress={() => remove(startOver)}>
           {t.startOver}
         </Button>
-        {last && <span className="muted">{t.checkedIn(last.ms.toFixed(2))}</span>}
+        {last && last.error?.kind !== "timeout" && <span className="muted">{t.checkedIn(last.ms.toFixed(2))}</span>}
       </div>
       {/* Always rendered, so each new notice is announced. */}
       <div role="status" className="notice">
@@ -97,7 +101,7 @@ export function Working({ t }: { t: Strings }) {
       <p className="stoa-visually-hidden" aria-live="polite">
         {announce && (
           <>
-            <bdi dir="ltr">{pretty(t.showLine(announce.text))}</bdi>: <RichText value={t.explain(announce.result, "step")} />
+            <Ltr>{pretty(t.showLine(announce.text))}</Ltr>: <RichText value={t.explain(announce.result, { line: announce.line })} />
           </>
         )}
       </p>

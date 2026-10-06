@@ -4,6 +4,8 @@
 // link) and in localStorage (for the next visit), the link winning, and
 // System clears both (`?theme=system` asks for it in a link).
 
+import type { Lang } from "./i18n";
+
 export type Theme = "light" | "dark";
 export type ThemeChoice = Theme | "system";
 
@@ -44,6 +46,11 @@ export function forgetTheme() {
   } catch {
     // Nothing was remembered where storage is blocked.
   }
+}
+
+/** The language asked for in the link; English otherwise. */
+export function chosenLang(): Lang {
+  return new URLSearchParams(location.search).get("lang") === "ar" ? "ar" : "en";
 }
 
 /** Sets one URL parameter, keeping the others. replaceState: a change of

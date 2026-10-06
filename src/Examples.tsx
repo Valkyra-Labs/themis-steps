@@ -1,6 +1,6 @@
-import { useMemo } from "react";
+import { useEffect, useState } from "react";
 import { Panel, StatusBadge } from "@valkyra-labs/stoa-react";
-import { check } from "./engine";
+import { check, type Check } from "./engine";
 import type { Strings } from "./i18n";
 import { StepRow } from "./StepRow";
 
@@ -15,15 +15,23 @@ const EXAMPLES: { id: keyof Strings["exampleTitles"]; lines: string[] }[] = [
   { id: "clearing", lines: ["(x + 1)/2 = x - 1", "x + 1 = 2(x - 1)", "x + 1 = 2x - 2", "x = 3"] },
 ];
 
+type Checked = (typeof EXAMPLES)[number] & { results: (Check | undefined)[] };
+
 export function Examples({ t }: { t: Strings }) {
-  const checked = useMemo(
-    () =>
-      EXAMPLES.map((ex) => ({
+  const [checked, setChecked] = useState<Checked[] | null>(null);
+  useEffect(() => {
+    let live = true;
+    Promise.all(
+      EXAMPLES.map(async (ex) => ({
         ...ex,
-        results: ex.lines.map((line, i) => (i === 0 ? undefined : check(ex.lines[i - 1]!, line))),
+        results: await Promise.all(ex.lines.map((line, i) => (i === 0 ? undefined : check(ex.lines[i - 1]!, line)))),
       })),
-    [],
-  );
+    ).then((done) => live && setChecked(done));
+    return () => {
+      live = false;
+    };
+  }, []);
+  if (!checked) return <p className="muted">{t.checking}</p>;
   return (
     <div className="examples">
       <p className="muted">{t.examplesIntro}</p>

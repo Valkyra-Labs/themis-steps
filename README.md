@@ -28,7 +28,9 @@ exactly: the roots it loses or gains, and any change of domain.
 
 Removing a line or starting over can be undone; the working is kept when
 you switch tabs; and while the engine loads the page says so, with a
-retry if it fails.
+retry if it fails. Lines are checked in a Web Worker, one after another;
+a check that takes longer than 2 seconds is stopped and the step marked
+as not checked in time, so no line can hold up the page.
 
 Every verdict is explained in the interface's language: the app writes
 the explanation from the engine's structured result (the roots lost or

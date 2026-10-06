@@ -1,5 +1,5 @@
-import { useMemo } from "react";
-import { StatusBadge } from "@valkyra-labs/stoa-react";
+import { useEffect, useState } from "react";
+import { Ltr, StatusBadge, Table } from "@valkyra-labs/stoa-react";
 import { check, solutions, type Check } from "./engine";
 import type { Strings } from "./i18n";
 import { pretty } from "./pretty";
@@ -29,25 +29,30 @@ function answerLine(stated: string[]): string | null {
   return stated.map((a) => `x = ${a}`).join(" or ");
 }
 
+type Row = (typeof EXERCISES)[number] & { actual: string[]; ok: boolean; wrong: Check | null };
+
+async function audit(ex: (typeof EXERCISES)[number]): Promise<Row> {
+  const actual = await solutions(ex.equation);
+  const line = answerLine(ex.stated);
+  if (line === null) return { ...ex, actual, ok: JSON.stringify(ex.stated) === JSON.stringify(actual), wrong: null };
+  const c = await check(ex.equation, line);
+  return { ...ex, actual, ok: c.kind === "equivalent", wrong: c.kind === "equivalent" ? null : c };
+}
+
 export function Audit({ t }: { t: Strings }) {
-  const rows = useMemo(
-    () =>
-      EXERCISES.map((ex) => {
-        const actual = solutions(ex.equation);
-        const line = answerLine(ex.stated);
-        let ok: boolean;
-        let wrong: Check | null = null;
-        if (line === null) {
-          ok = JSON.stringify(ex.stated) === JSON.stringify(actual);
-        } else {
-          const c = check(ex.equation, line);
-          ok = c.kind === "equivalent";
-          if (!ok) wrong = c;
-        }
-        return { ...ex, actual, ok, wrong };
-      }),
-    [],
-  );
+  const [rows, setRows] = useState<Row[] | "failed" | null>(null);
+  useEffect(() => {
+    let live = true;
+    Promise.all(EXERCISES.map(audit)).then(
+      (done) => live && setRows(done),
+      () => live && setRows("failed"),
+    );
+    return () => {
+      live = false;
+    };
+  }, []);
+  if (rows === null) return <p className="muted">{t.checking}</p>;
+  if (rows === "failed") return <p className="muted">{t.auditFailed}</p>;
   // Solutions are maths, kept left to right; "no real solution" and "every
   // x" are words, which take the interface's direction.
   const answer = (v: string[]) =>
@@ -56,9 +61,7 @@ export function Audit({ t }: { t: Strings }) {
     ) : v[0] === "*" ? (
       <RichText value={t.every} />
     ) : (
-      <bdi dir="ltr" className="math">
-        {pretty(v.join(t.listSeparator))}
-      </bdi>
+      <Ltr mono>{pretty(v.join(t.listSeparator))}</Ltr>
     );
   const ok = rows.filter((r) => r.ok).length;
   return (
@@ -67,38 +70,40 @@ export function Audit({ t }: { t: Strings }) {
       <p>
         <strong>{t.auditSummary(ok, rows.length)}</strong>
       </p>
-      <table className="stoa-table">
-        <caption className="stoa-visually-hidden">{t.tabs.audit}</caption>
-        <thead>
-          <tr>
-            <th scope="col">{t.exercise}</th>
-            <th scope="col">{t.stated}</th>
-            <th scope="col">{t.actual}</th>
-            <th scope="col">{t.verdict}</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((r) => (
-            <tr key={r.equation}>
-              <td>
-                <bdi dir="ltr" className="math">
-                  {pretty(r.equation)}
-                </bdi>
-              </td>
-              <td>{answer(r.stated)}</td>
-              <td>{answer(r.actual)}</td>
-              <td>
+      {/* Too wide for a phone, the table scrolls sideways in its own region;
+          maths stays on one line. */}
+      <Table
+        caption={t.tabs.audit}
+        hideCaption
+        rows={rows}
+        rowKey={(r) => r.equation}
+        emptyText=""
+        columns={[
+          {
+            id: "exercise",
+            header: t.exercise,
+            cell: (r) => (
+              <Ltr mono>{pretty(r.equation)}</Ltr>
+            ),
+          },
+          { id: "stated", header: t.stated, cell: (r) => answer(r.stated) },
+          { id: "actual", header: t.actual, cell: (r) => answer(r.actual) },
+          {
+            id: "verdict",
+            header: t.verdict,
+            cell: (r) => (
+              <>
                 <StatusBadge tone={r.ok ? "positive" : "negative"}>{r.ok ? t.answerOk : t.answerWrong}</StatusBadge>
                 {r.wrong && (
                   <div className="muted">
                     <RichText value={t.explain(r.wrong, "answer")} />
                   </div>
                 )}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+              </>
+            ),
+          },
+        ]}
+      />
     </div>
   );
 }

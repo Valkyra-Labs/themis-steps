@@ -66,6 +66,88 @@ test("removing lines can be undone until the next edit", async ({ page }) => {
   await expect(notice).toBeEmpty();
 });
 
+test("a line slow to check is stopped at the time limit, and the page answers meanwhile", async ({ page }) => {
+  await page.goto("/");
+  const next = page.getByLabel("Next line");
+  // Within the engine's limits, but seconds of work: a degree-32
+  // polynomial with nine-digit coefficients.
+  await next.fill("(123456789x^2 + 987654321x - 1)^16 + x = 0");
+  const started = Date.now();
+  await next.press("Enter");
+  const steps = page.locator(".working .step");
+  await expect(steps.nth(1)).toContainText("Checking…");
+  // The check runs in a worker, so the page goes on answering.
+  const examples = page.getByRole("tab", { name: "Worked examples" });
+  await examples.click({ timeout: 1000 });
+  await expect(examples).toHaveAttribute("aria-selected", "true", { timeout: 1000 });
+  await page.getByRole("tab", { name: "Check your working" }).click({ timeout: 1000 });
+  await expect(steps.nth(1)).toContainText("took longer than 2 seconds", { timeout: 6000 });
+  await expect(steps.nth(1)).toContainText("Too complex to check");
+  // Two seconds and the time to report it, with room for a loaded machine.
+  expect(Date.now() - started).toBeLessThan(4500);
+  // The next line is checked as usual, in a new worker.
+  await next.fill("x^2 = 4");
+  await next.press("Enter");
+  await next.fill("x = 2");
+  await next.press("Enter");
+  await expect(steps.nth(3)).toContainText("This step loses x = -2.");
+});
+
+test("hostile lines are answered within the time limit, each with the limit it is over", async ({ page }) => {
+  await page.goto("/");
+  const next = page.getByLabel("Next line");
+  const steps = page.locator(".working .step");
+  const cases: [string, string, string][] = [
+    // 2,000 nested brackets used to break the engine until the page was reloaded.
+    [`${"(".repeat(2000)}x${")".repeat(2000)} = 1`, "Cannot read this line", "Line 2: longer than 500 characters, the most the engine reads in a line."],
+    [`${"(".repeat(200)}x${")".repeat(200)} = 1`, "Cannot read this line", "Line 2: brackets and signs nested more than 64 deep, the most the engine reads."],
+    [`${"-".repeat(400)}x = 1`, "Cannot read this line", "nested more than 64 deep"],
+    ["x^99999999999999999999 = 1", "Cannot read this line", "Line 2: the exponent at position 3 is too large."],
+    ["((x+1)^64)^64 = 0", "Too complex to check", "Line 2: too complex to check: it needs a degree above 64"],
+    [`x = ${"1 + ".repeat(2500)}1`, "Cannot read this line", "longer than 500 characters"],
+    [Array.from({ length: 60 }, (_, k) => `x=${k}`).join(" or "), "Cannot read this line", "Line 2: more than 12 alternatives"],
+    // Short lines with huge coefficients: 42 seconds of work before.
+    ["735134400x^2 + x + 735134400 = 0", "Changes the solutions", "This step loses x = 2, x = 3."],
+    ["963761198400x^2 + x + 963761198400 = 0", "Changes the solutions", "This step loses x = 2, x = 3."],
+  ];
+  for (const [line, badge, why] of cases) {
+    await next.fill(line);
+    const started = Date.now();
+    await next.press("Enter");
+    const row = steps.nth(1);
+    await expect(row.locator(".step__badge")).not.toHaveText("Checking…");
+    // The engine answered itself, well before the time limit would stop it.
+    expect(Date.now() - started, line.slice(0, 40)).toBeLessThan(2000);
+    await expect(row.locator(".step__badge")).toHaveText(new RegExp(badge));
+    await expect(row.locator(".step__why")).toContainText(why);
+    await page.getByRole("button", { name: "Remove last line" }).click();
+    await expect(steps).toHaveCount(1);
+  }
+  // The engine still checks lines as before.
+  await next.fill("(x - 2)(x - 3) = 0");
+  await next.press("Enter");
+  await expect(steps.nth(1)).toContainText("Correct");
+});
+
+test("a message about a line names it by its number on screen", async ({ page }) => {
+  await page.goto("/");
+  const next = page.getByLabel("Next line");
+  for (const line of ["(x - 2)(x - 3) = 0", "x = 2 or x = 3", "x = 2 or x = 3", "x = = 3", "x = 3"]) {
+    await next.fill(line);
+    await next.press("Enter");
+  }
+  const steps = page.locator(".working .step");
+  await expect(steps).toHaveCount(6);
+  await expect(steps.nth(4).locator(".step__n")).toHaveText("5");
+  await expect(steps.nth(4)).toContainText("Line 5: more than one '='.");
+  await expect(steps.nth(5)).toContainText("Line 5: more than one '='.");
+  // Line 5 could not be read; line 6 was, and its step is not checked.
+  await expect(steps.nth(4)).toContainText("Cannot read this line");
+  await expect(steps.nth(5)).toContainText("Not checked");
+  await expect(steps.nth(5)).not.toContainText("Cannot read");
+  await expect(page.locator('[aria-live="polite"]').last()).toHaveText("x = 3: Line 5: more than one '='.");
+});
+
 test("the working survives a visit to another tab", async ({ page }) => {
   await page.goto("/");
   const next = page.getByLabel("Next line");
@@ -117,6 +199,47 @@ test("the Arabic interface is right to left and keeps maths left to right", asyn
   await expect(page.locator(".step__math").first()).toHaveAttribute("dir", "ltr");
 });
 
+test("an Arabic page is right to left before the app draws anything", async ({ page }) => {
+  // Records, in order, the root element's direction changes and the app's
+  // first content.
+  await page.addInitScript(() => {
+    const seen: string[] = [];
+    (window as unknown as { seen: string[] }).seen = seen;
+    new MutationObserver((records) => {
+      for (const r of records) {
+        if (r.type === "attributes" && r.target === document.documentElement && r.attributeName === "dir") seen.push(`dir=${document.documentElement.dir}`);
+        if (r.type === "childList" && (r.target as Element).id === "root" && r.addedNodes.length > 0) seen.push("content");
+      }
+    }).observe(document, { subtree: true, childList: true, attributes: true, attributeFilter: ["dir"] });
+  });
+  await page.goto("/?lang=ar");
+  await expect(page.getByRole("tab").first()).toBeVisible();
+  const seen = await page.evaluate(() => (window as unknown as { seen: string[] }).seen);
+  expect(seen.slice(0, 2)).toEqual(["dir=rtl", "content"]);
+  await expect(page.locator("html")).toHaveAttribute("lang", "ar");
+});
+
+test("the Arabic face is preloaded on an Arabic page only", async ({ page }) => {
+  const preloads = () => page.evaluate(() => [...document.querySelectorAll<HTMLLinkElement>('link[rel="preload"][as="font"]')].map((l) => l.href));
+  await page.goto("/?lang=ar");
+  await expect(page.getByRole("tab").first()).toBeVisible();
+  const ar = await preloads();
+  expect(ar).toHaveLength(1);
+  expect(ar[0]).toMatch(/ibm-plex-sans-arabic-arabic-400-normal.*\.woff2/);
+  // The face the page draws Arabic in, so the preload is used, not fetched twice.
+  const used = await page.evaluate(async () => {
+    await document.fonts.ready;
+    return performance
+      .getEntriesByType("resource")
+      .filter((e) => /ibm-plex-sans-arabic-arabic-400-normal[^/?]*\.woff2$/.test(e.name))
+      .map((e) => e.name);
+  });
+  expect(used).toEqual(ar);
+  await page.goto("/?lang=en");
+  await expect(page.getByRole("tab").first()).toBeVisible();
+  expect(await preloads()).toEqual([]);
+});
+
 test("the chosen language survives a reload", async ({ page }) => {
   await page.goto("/?from=link");
   await expect(page.getByRole("radiogroup", { name: "Language" })).toBeVisible();
@@ -155,7 +278,7 @@ test("the Arabic interface explains each verdict in Arabic, with maths left to r
   await expect(live).not.toHaveAttribute("lang");
   await next.fill("x = 2 $");
   await next.press("Enter");
-  await expect(why.last()).toHaveText("السطر 2: لم يُتوقَّع «$» في الموضع 7");
+  await expect(why.last()).toHaveText("السطر 3: لم يُتوقَّع «$» في الموضع 7.");
   await page.getByRole("tab", { name: "تدقيق التمارين" }).click();
   await expect(page.getByText("تفقد الإجابة المعلنة الحل x = -4.")).toBeVisible();
   await expect(page.getByText("تضيف الإجابة المعلنة الحل x = 2، وهو ليس حلًّا للمعادلة.")).toBeVisible();
@@ -303,6 +426,21 @@ test("the chosen theme survives a reload and the next visit", async ({ page }) =
   await expect(page.getByRole("radio", { name: "Light" })).toBeChecked();
 });
 
+test("the browser's own parts are drawn in the theme shown", async ({ page }) => {
+  const scheme = () => page.locator("html").evaluate((el) => getComputedStyle(el).colorScheme);
+  await page.emulateMedia({ colorScheme: "dark" });
+  await page.goto("/");
+  await expect(page.getByRole("radio", { name: "System" })).toBeChecked();
+  expect(await scheme()).toBe("dark");
+  await page.getByRole("radio", { name: "Light" }).click();
+  expect(await scheme()).toBe("light");
+  await page.emulateMedia({ colorScheme: "light" });
+  await page.getByRole("radio", { name: "Dark" }).click();
+  expect(await scheme()).toBe("dark");
+  await page.getByRole("radio", { name: "System" }).click();
+  expect(await scheme()).toBe("light");
+});
+
 test("the theme can be chosen with storage blocked", async ({ page }) => {
   await page.addInitScript(() => {
     Object.defineProperty(window, "localStorage", {
@@ -356,6 +494,53 @@ test("on a phone the field hint is at least 12px", async ({ page }) => {
   await page.goto("/?lang=ar");
   await expect(page.locator(".working .stoa-field__description")).toHaveCSS("font-size", "12px");
 });
+
+for (const lang of ["en", "ar"]) {
+  test(`on a phone the tabs share one row and the audit keeps each piece of maths on one line (${lang})`, async ({ page }) => {
+    await page.setViewportSize({ width: 375, height: 812 });
+    await page.goto(`/?lang=${lang}`);
+    await expect(page.getByRole("tab")).toHaveCount(3);
+    const tabs = await page.getByRole("tab").all();
+    const tops = await Promise.all(tabs.map(async (tab) => (await tab.boundingBox())!.y));
+    expect(new Set(tops).size, "tab rows").toBe(1);
+    await tabs[2]!.click();
+    await expect(page.locator(".audit table")).toBeVisible();
+    // Each piece of maths and each badge in the table is drawn on one line.
+    const broken = await page.locator(".audit table").evaluate((table) =>
+      [...table.querySelectorAll("bdi, .stoa-badge")]
+        .filter((el) => {
+          const range = document.createRange();
+          range.selectNodeContents(el);
+          const lines = new Set([...range.getClientRects()].map((r) => Math.round(r.top)));
+          return lines.size > 1;
+        })
+        .map((el) => el.textContent),
+    );
+    expect(broken).toEqual([]);
+    // The table scrolls in its own region; the page does not scroll sideways.
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+    await expectNoSeriousViolations(page);
+  });
+}
+
+for (const width of [375, 1280]) {
+  test(`a long line without spaces wraps inside its row (${width} px)`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 800 });
+    await page.goto("/");
+    const next = page.getByLabel("Next line");
+    await next.fill(`${"(".repeat(300)}x${")".repeat(300)} = 1`);
+    await next.press("Enter");
+    const row = page.locator(".working .step").nth(1);
+    await expect(row).toContainText("Cannot read this line");
+    const working = (await page.locator(".working").boundingBox())!;
+    const box = (await row.boundingBox())!;
+    expect(box.x).toBeGreaterThanOrEqual(working.x - 1);
+    expect(box.x + box.width).toBeLessThanOrEqual(working.x + working.width + 1);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+    // Neither the page nor its region scrolled sideways.
+    expect(await page.locator(".stoa-page-shell__scroll").evaluate((el) => el.scrollLeft)).toBe(0);
+  });
+}
 
 test("arrow keys in the tabs follow the page direction", async ({ page }) => {
   // React Aria takes its direction from the locale it is given, not from
